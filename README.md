@@ -21,7 +21,7 @@ This is an **unofficial** AppImage build of [Claws Mail](https://www.claws-mail.
 Grab the latest AppImage from the [Releases](https://github.com/danrobi11/claw-mail-appimage/releases) page.
 
 - File: `claws-mail.AppImage`
-- Size: ~36 MB
+- Size: ~35 MB
 - SHA256: `41265d55080be8395dd299738cf89138b7d889bf3de7d730b0055ebfa3f60f8f`
 
 ## Usage
