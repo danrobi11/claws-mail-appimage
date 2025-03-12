@@ -22,7 +22,7 @@ Grab the latest AppImage from the [Releases](https://github.com/danrobi11/claw-m
 
 - File: `claws-mail.AppImage`
 - Size: ~36 MB
-- SHA256: `62ada3a1844f2f9e2bf54af955517f319d55813f52e1050498ad4374b149d4cc`
+- SHA256: `41265d55080be8395dd299738cf89138b7d889bf3de7d730b0055ebfa3f60f8f`
 
 ## Usage
 1. **Download** the AppImage from the Releases section.
