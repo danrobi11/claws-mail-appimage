@@ -18,7 +18,7 @@ This is an **unofficial** AppImage build of [Claws Mail](https://www.claws-mail.
 - **AppImage Build**: Unofficial, created on March 11, 2025
 
 ## Download
-Grab the latest AppImage from the [Releases](https://github.com/yourusername/claw-mail-appimage/releases) page.
+Grab the latest AppImage from the [Releases](https://github.com/danrobi11/claw-mail-appimage/releases) page.
 
 - File: `claws-mail-4.3.0.AppImage`
 - Size: ~36 MB
