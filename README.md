@@ -20,12 +20,12 @@ This is an **unofficial** AppImage build of [Claws Mail](https://www.claws-mail.
 ## Download
 Grab the latest AppImage from the [Releases](https://github.com/danrobi11/claw-mail-appimage/releases) page.
 
-- File: `claws-mail-4.3.0.AppImage`
+- File: `claws-mail.AppImage`
 - Size: ~36 MB
-- SHA256: [Add checksum here after building, e.g., `sha256sum claws-mail-4.3.0.AppImage`]
+- SHA256: `62ada3a1844f2f9e2bf54af955517f319d55813f52e1050498ad4374b149d4cc`
 
 ## Usage
 1. **Download** the AppImage from the Releases section.
 2. **Make it executable**:
    ```bash
-   chmod +x claws-mail-4.3.0.AppImage
+   chmod +x claws-mail.AppImage
