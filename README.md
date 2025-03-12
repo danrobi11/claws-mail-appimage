@@ -1,6 +1,6 @@
 # Claws Mail AppImage (Unofficial)
 
-![Claws Mail Logo](https://www.claws-mail.org/img/logo.png)
+![Claws Mail Logo](https://www.claws-mail.org/img/sc-bar-right.png)
 
 ## Overview
 
@@ -40,11 +40,12 @@ Grab the latest AppImage from the [Releases](https://github.com/danrobi11/claws-
 1. **Download** the AppImage from the Releases section.
 2. **Make it executable:**
    ```bash
-   chmod +x claws-mail.AppImage
+   chmod +x Claws-Mail-4.3.0-x86_64.AppImage
+
    ```
 3. **Run the AppImage:**
    ```bash
-   ./claws-mail.AppImage
+   ./Claws-Mail-4.3.0-x86_64.AppImage
    ```
 
 ## Notes
