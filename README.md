@@ -51,4 +51,12 @@ chmod +x claws-mail-appimage.sh
 
 That’s it—you’ll get claws-mail.AppImage built locally!
 
+Disclaimer
+
+This repository contains a script for building the Claws-Mail-4.3.0-x86_64.AppImage.
+The script was created with assistance from Grok 3, an AI developed by xAI (https://grok.com).
+While efforts have been made to ensure the script functions correctly, it is provided "as is" without any warranties
+or guarantees of performance, reliability, or compatibility. Users are responsible for testing and verifying the script's output before use.
+Neither the repository owner nor xAI is liable for any issues, damages, or data loss that may arise from using this script or the resulting AppImage.
+
 #claw-mail-appimage
