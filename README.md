@@ -1,5 +1,5 @@
 # Claws Mail AppImage (Unofficial)  
-![Claws Mail Logo](https://claws-mail.org/images/claws-mail_logo.png) <!-- Optional: Add a logo if you host one -->
+![Claws Mail Logo](https://claws-mail.org/img/sc-bar-right.png) <!-- Optional: Add a logo if you host one -->
 
 ## Overview
 This is an **unofficial** AppImage build of [Claws Mail](https://www.claws-mail.org/), a lightweight, fast, and highly configurable email client. This AppImage packages Claws Mail version **4.3.0** for easy, portable use on Linux systems without requiring installation or dependencies.
@@ -29,3 +29,26 @@ Grab the latest AppImage from the [Releases](https://github.com/danrobi11/claw-m
 2. **Make it executable**:
    ```bash
    chmod +x claws-mail.AppImage
+
+Manual Build (Alternative)
+## Building the AppImage Yourself
+If you want to build the Claws Mail AppImage on your end, just run the included script! Everything’s handled by `claws-mail-appimage.sh`.
+
+### Steps
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/yourusername/claw-mail-appimage.git
+   cd claw-mail-appimage
+
+2. Make the script executable:
+```bash
+chmod +x claws-mail-appimage.sh
+```
+4. Run it:
+```bash
+./claws-mail-appimage.sh
+```
+
+That’s it—you’ll get claws-mail.AppImage built locally!
+
+#claw-mail-appimage
