@@ -28,7 +28,7 @@ Grab the latest AppImage from the [Releases](https://github.com/danrobi11/claw-m
 1. **Download** the AppImage from the Releases section.
 2. **Make it executable**:
    ```bash
-   chmod +x claws-mail.AppImage
+   chmod +x Claws-Mail-4.3.0-x86_64.AppImage
 
 Manual Build (Alternative)
 ## Building the AppImage Yourself
@@ -37,7 +37,7 @@ If you want to build the Claws Mail AppImage on your end, just run the included 
 ### Steps
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/claw-mail-appimage.git
+   git clone https://github.com/danrobi11/claw-mail-appimage.git
    cd claw-mail-appimage
 
 2. Make the script executable:
