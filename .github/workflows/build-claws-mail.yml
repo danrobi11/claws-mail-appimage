@@ -21,15 +21,18 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential git wget musl-tools musl-dev \
             autoconf automake libtool gettext \
-            libgtk-3-dev libglib2.0-dev libetpan-dev libgnutls28-dev \
+            libgtk-3-dev libglib2.0-dev libgnutls28-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev xterm
 
-      - name: Debug libetpan
+      - name: Build and install libetpan
         run: |
-          pkg-config --modversion libetpan
-          find /usr -name "libetpan.h" || echo "libetpan.h not found"
-          ls -l /usr/lib/x86_64-linux-gnu/libetpan* || echo "libetpan libs not found"
+          git clone https://github.com/dinhvh/libetpan.git
+          cd libetpan
+          ./autogen.sh
+          CC=musl-gcc ./configure --prefix=/usr
+          make -j$(nproc)
+          sudo make install
 
       - name: Clone Claws Mail source
         run: |
@@ -54,6 +57,7 @@ jobs:
             libcompface.so.1 libc.so.6; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            cp -v /usr/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
 
