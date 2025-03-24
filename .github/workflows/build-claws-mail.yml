@@ -25,6 +25,12 @@ jobs:
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev xterm
 
+      - name: Debug libetpan
+        run: |
+          pkg-config --modversion libetpan
+          find /usr -name "libetpan.h" || echo "libetpan.h not found"
+          ls -l /usr/lib/x86_64-linux-gnu/libetpan* || echo "libetpan libs not found"
+
       - name: Clone Claws Mail source
         run: |
           git clone https://git.claws-mail.org/readonly/claws.git claws-mail
