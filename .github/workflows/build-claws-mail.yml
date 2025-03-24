@@ -1,0 +1,106 @@
+name: Build Claws Mail AppImage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: voidlinux/voidlinux-musl:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          xbps-install -Syu
+          xbps-install -Sy base-devel git wget fuse3 fuse3-devel \
+            gtk+3-devel glib-devel libetpan-devel gnutls-devel \
+            libnotify-devel startup-notification-devel libcompface-devel \
+            xterm
+
+      - name: Clone Claws Mail source
+        run: |
+          git clone https://git.claws-mail.org/readonly/claws.git claws-mail
+          cd claws-mail
+          git checkout claws-4.3.0 || echo "Tag claws-4.3.0 not found; using latest commit"
+
+      - name: Build Claws Mail
+        run: |
+          cd claws-mail
+          ./autogen.sh
+          ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
+          make -j$(nproc)
+          make install
+
+      - name: Bundle libraries
+        run: |
+          mkdir -p /tmp/appdir/usr/lib
+          for lib in \
+            libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
+            libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
+            libcompface.so.1 libc.so musl/lib/ld-musl-x86_64.so.1; do
+            cp -v /usr/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || echo "Warning: $lib not found"
+          done
+
+      - name: Download linuxdeployqt and appimagetool
+        run: |
+          wget -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage -O linuxdeployqt
+          wget -c https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x linuxdeployqt appimagetool
+
+      - name: Create AppRun
+        run: |
+          cat << 'EOF' > /tmp/appdir/AppRun
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export PATH="$HERE/usr/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:$PATH"
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+          LOGFILE="$HOME/claws-mail-appimage-run.log"
+          echo "Starting Claws Mail..." >> "$LOGFILE"
+          echo "PATH: $PATH" >> "$LOGFILE"
+          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" >> "$LOGFILE"
+          echo "LOGFILE: $LOGFILE" >> "$LOGFILE"
+          echo "Checking dependencies..." >> "$LOGFILE"
+          ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
+          "$HERE/usr/bin/claws-mail" "$@" >> "$LOGFILE" 2>&1
+          EXIT_CODE=$?
+          echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
+          exit $EXIT_CODE
+          EOF
+          chmod +x /tmp/appdir/AppRun
+
+      - name: Create desktop file
+        run: |
+          cat << 'EOF' > /tmp/appdir/claws-mail.desktop
+          [Desktop Entry]
+          Name=Claws Mail
+          Exec=claws-mail
+          Type=Application
+          Icon=claws-mail
+          Categories=Network;Email;
+          Terminal=false
+          EOF
+
+      - name: Copy icon
+        run: |
+          wget -O /tmp/appdir/claws-mail.png https://www.claws-mail.org/img/claws-mail_icon_64.png || echo "Icon download failed"
+
+      - name: Bundle with linuxdeployqt
+        run: |
+          ./linuxdeployqt /tmp/appdir/usr/bin/claws-mail -bundle-non-qt-libs -unsupported-allow-new-glibc -verbose=2
+
+      - name: Package AppImage
+        run: |
+          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: claws-mail-appimage
+          path: claws-mail-4.3.0-x86_64.AppImage
