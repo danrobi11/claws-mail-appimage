@@ -30,9 +30,11 @@ jobs:
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
           ./autogen.sh
-          CC=musl-gcc ./configure --prefix=/usr
+          CC=musl-gcc ./configure --prefix=/usr/local/libetpan
           make -j$(nproc)
           sudo make install
+          ls -l /usr/local/libetpan/include/libetpan/ || echo "libetpan headers not found"
+          ls -l /usr/local/libetpan/lib/ || echo "libetpan libs not found"
 
       - name: Clone Claws Mail source
         run: |
@@ -44,7 +46,8 @@ jobs:
         run: |
           cd claws-mail
           ./autogen.sh
-          CC=musl-gcc ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
+          CC=musl-gcc CFLAGS="-I/usr/local/libetpan/include" LDFLAGS="-L/usr/local/libetpan/lib" \
+            ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
           make -j$(nproc)
           make install
 
@@ -57,7 +60,7 @@ jobs:
             libcompface.so.1 libc.so.6; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
-            cp -v /usr/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            cp -v /usr/local/libetpan/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
 
