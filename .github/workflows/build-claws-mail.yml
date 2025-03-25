@@ -38,12 +38,15 @@ jobs:
           ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
           echo "Checking Nettle libs:"
           ls -l /usr/local/lib/libnettle* || echo "Nettle libs not found"
+          echo "Checking Nettle pkg-config:"
+          ls -l /usr/local/lib/pkgconfig/nettle.pc || echo "nettle.pc not found"
 
       - name: Build and install GnuTLS with musl
         run: |
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           CC=musl-gcc ./configure --prefix=/usr/local \
             --with-included-libtasn1 \
             --with-included-unistring \
