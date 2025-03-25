@@ -58,7 +58,7 @@ jobs:
             --disable-guile \
             --disable-doc \
             --with-nettle-mini \
-            --with-libnettle-prefix=/usr/local \
+            --with-nettle-prefix=/usr/local \
             CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
           make -j$(nproc)
           sudo make install
