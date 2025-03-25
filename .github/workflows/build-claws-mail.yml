@@ -51,6 +51,8 @@ jobs:
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export NETTLE_CFLAGS="-I/usr/local/include"
+          export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
           CC=musl-gcc ./configure --prefix=/usr/local \
             --with-included-libtasn1 \
             --with-included-unistring \
