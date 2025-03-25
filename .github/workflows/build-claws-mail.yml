@@ -21,7 +21,7 @@ jobs:
           sudo apt update
           sudo apt install -y --no-install-recommends build-essential git wget musl-tools musl-dev \
             autoconf automake libtool gettext pkg-config make binutils \
-            libgtk-3-dev libglib2.0-dev libpango1.0-dev libcairo2-dev \
+            libgtk-3-dev libglib2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev libfuse2 xterm
 
@@ -30,16 +30,35 @@ jobs:
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
-          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared
-          make -j$(nproc)
-          sudo make install
+          echo "Configuring Nettle..."
+          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
+          echo "Building Nettle core libraries..."
+          make -j$(nproc) libnettle.so libhogweed.so || { echo "Nettle library build failed"; exit 1; }
+          echo "Checking built libraries before proceeding:"
+          ls -l libnettle* libhogweed* || { echo "Libraries not built"; exit 1; }
+          echo "Building remaining Nettle components..."
+          make -j$(nproc) all || { echo "Nettle full build failed"; exit 1; }
+          echo "Installing Nettle..."
+          sudo make install || { echo "Nettle install failed"; exit 1; }
+          echo "Checking Nettle headers:"
+          ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
+          echo "Checking Nettle libs (static and shared):"
+          ls -l /usr/local/lib/libnettle* /usr/local/lib/libhogweed* || echo "Nettle libs not found"
+          echo "Checking Nettle pkg-config:"
+          ls -l /usr/local/lib/pkgconfig/nettle.pc || echo "nettle.pc not found"
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          echo "Nettle version:"
+          pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
 
       - name: Build and install GnuTLS with musl
         run: |
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
+          [ -f Makefile ] && make distclean || true
+          export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
+          export NETTLE_CFLAGS="-I/usr/local/include"
+          export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
           CC=musl-gcc ./configure --prefix=/usr/local \
             --with-included-libtasn1 \
             --with-included-unistring \
@@ -47,10 +66,22 @@ jobs:
             --disable-guile \
             --disable-doc \
             --disable-brotli \
+            --without-brotli \
             --with-nettle-mini \
-            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
+            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
+          echo "Checking GnuTLS headers:"
+          ls -l /usr/local/include/gnutls/ || echo "GnuTLS headers not found"
+          echo "Checking GnuTLS libs:"
+          ls -l /usr/local/lib/libgnutls* || echo "GnuTLS libs not found"
+
+      - name: Upload GnuTLS config.log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnutls-config-log
+          path: gnutls-3.7.8/config.log
 
       - name: Build and install libetpan with musl
         run: |
@@ -60,6 +91,10 @@ jobs:
           CC=musl-gcc ./configure --prefix=/usr/local
           make -j$(nproc)
           sudo make install
+          echo "Checking libetpan headers:"
+          ls -l /usr/local/include/libetpan/ || echo "libetpan headers not found"
+          echo "Checking libetpan libs:"
+          ls -l /usr/local/lib/libetpan* || echo "libetpan libs not found"
 
       - name: Clone Claws Mail source
         run: |
@@ -73,7 +108,7 @@ jobs:
           ./autogen.sh
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           CC=gcc CFLAGS="-I/usr/local/include -g" LDFLAGS="-L/usr/local/lib" \
-            ./configure --prefix=/tmp/appdir/usr --disable-manual
+            ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
           make -j$(nproc) CFLAGS="-I/usr/local/include -g"
           make install
 
@@ -83,8 +118,7 @@ jobs:
           for lib in \
             libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
             libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
-            libcompface.so.1 libc.so.6 libgpg-error.so.0 libpangocairo-1.0.so.0 \
-            libpango-1.0.so.0 libcairo.so.2; do
+            libcompface.so.1 libc.so.6 libgpg-error.so.0; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
