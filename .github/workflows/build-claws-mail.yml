@@ -50,19 +50,13 @@ jobs:
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           echo "Nettle version:"
           pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
-          echo "Nettle cflags:"
-          pkg-config --cflags nettle || echo "pkg-config --cflags nettle failed"
-          echo "Nettle libs:"
-          pkg-config --libs nettle || echo "pkg-config --libs nettle failed"
 
       - name: Build and install GnuTLS with musl
         run: |
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
-          # Clean any existing build artifacts
           [ -f Makefile ] && make distclean || true
-          # Restrict pkg-config search path completely
           export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
           export NETTLE_CFLAGS="-I/usr/local/include"
           export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
@@ -78,7 +72,6 @@ jobs:
             CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
-          # Verify installation
           echo "Checking GnuTLS headers:"
           ls -l /usr/local/include/gnutls/ || echo "GnuTLS headers not found"
           echo "Checking GnuTLS libs:"
@@ -91,7 +84,7 @@ jobs:
           name: gnutls-config-log
           path: gnutls-3.7.8/config.log
 
-      - name: Build and install libetpan
+      - name: Build and install libetpan with musl
         run: |
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
@@ -99,7 +92,6 @@ jobs:
           CC=musl-gcc ./configure --prefix=/usr/local
           make -j$(nproc)
           sudo make install
-          # Debug: Verify installation
           echo "Checking libetpan headers:"
           ls -l /usr/local/include/libetpan/ || echo "libetpan headers not found"
           echo "Checking libetpan libs:"
@@ -111,12 +103,12 @@ jobs:
           cd claws-mail
           git checkout claws-4.3.0 || echo "Tag claws-4.3.0 not found; using latest commit"
 
-      - name: Build Claws Mail with musl
+      - name: Build Claws Mail with gcc
         run: |
           cd claws-mail
           ./autogen.sh
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          CC=musl-gcc CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" \
+          CC=gcc CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" \
             ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
           make -j$(nproc) CFLAGS="-I/usr/local/include"
           make install
