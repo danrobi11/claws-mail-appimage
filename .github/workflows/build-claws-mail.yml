@@ -169,12 +169,11 @@ jobs:
           mkdir -p /tmp/appdir/usr/share/icons/hicolor/48x48/apps
           if [ -f "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" ]; then
             cp "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" /tmp/appdir/claws-mail.png
-            cp "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" /tmp/appdir/usr/share/icons/hicolor/48x48/apps/
           else
             wget -O /tmp/appdir/claws-mail.png "https://www.claws-mail.org/images/claws-mail_icon_48.png" || echo "Icon download failed"
-            cp /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/
+            cp /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png || true
           fi
-          chmod 644 /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png
+          chmod 644 /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png || true
 
       - name: Bundle with linuxdeployqt
         run: |
