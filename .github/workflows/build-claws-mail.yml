@@ -69,6 +69,7 @@ jobs:
             --without-p11-kit \
             --disable-guile \
             --disable-doc \
+            --disable-brotli \
             --with-nettle-mini \
             CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
