@@ -33,11 +33,11 @@ jobs:
           echo "Configuring Nettle..."
           CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
           echo "Building Nettle core libraries..."
-          make -j$(nproc) libnettle.la libhogweed.la || { echo "Nettle library build failed"; exit 1; }
+          make -j$(nproc) libnettle.so libhogweed.so || { echo "Nettle library build failed"; exit 1; }
           echo "Checking built libraries before proceeding:"
           ls -l .libs/libnettle* .libs/libhogweed* || { echo "Libraries not built in .libs/"; exit 1; }
           echo "Building remaining Nettle components..."
-          make -j$(nproc) || { echo "Nettle full build failed"; exit 1; }
+          make -j$(nproc) all || { echo "Nettle full build failed"; exit 1; }
           echo "Installing Nettle..."
           sudo make install || { echo "Nettle install failed"; exit 1; }
           # Verify installation
