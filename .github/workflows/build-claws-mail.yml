@@ -60,7 +60,10 @@ jobs:
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"  # Restrict to local path only
+          # Clean any existing build artifacts
+          [ -f Makefile ] && make distclean || true
+          # Restrict pkg-config search path completely
+          export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
           export NETTLE_CFLAGS="-I/usr/local/include"
           export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
           CC=musl-gcc ./configure --prefix=/usr/local \
@@ -70,6 +73,7 @@ jobs:
             --disable-guile \
             --disable-doc \
             --disable-brotli \
+            --without-brotli \
             --with-nettle-mini \
             CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
