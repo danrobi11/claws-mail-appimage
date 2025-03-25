@@ -30,12 +30,17 @@ jobs:
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
           ./autogen.sh
-          CC=musl-gcc ./configure --prefix=/usr/local/libetpan
+          CC=musl-gcc ./configure --prefix=/usr/local
           make -j$(nproc)
           sudo make install
-          ls -l /usr/local/libetpan/include/libetpan/ || echo "libetpan headers not found"
-          ls -l /usr/local/libetpan/lib/ || echo "libetpan libs not found"
-          ls -l /usr/local/libetpan/lib/pkgconfig/ || echo "libetpan pkgconfig not found"
+          # Debug: Verify installation
+          echo "Checking libetpan headers:"
+          ls -l /usr/local/include/libetpan/ || echo "libetpan headers not found"
+          echo "Checking libetpan libs:"
+          ls -l /usr/local/lib/libetpan* || echo "libetpan libs not found"
+          echo "Checking libetpan pkg-config:"
+          ls -l /usr/local/lib/pkgconfig/libetpan.pc || echo "libetpan.pc not found"
+          pkg-config --modversion libetpan || echo "pkg-config cannot find libetpan"
 
       - name: Clone Claws Mail source
         run: |
@@ -47,8 +52,8 @@ jobs:
         run: |
           cd claws-mail
           ./autogen.sh
-          CC=musl-gcc CFLAGS="-I/usr/local/libetpan/include" LDFLAGS="-L/usr/local/libetpan/lib" \
-            PKG_CONFIG_PATH="/usr/local/libetpan/lib/pkgconfig:$PKG_CONFIG_PATH" \
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          CC=musl-gcc CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" \
             ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
           make -j$(nproc)
           make install
@@ -62,7 +67,7 @@ jobs:
             libcompface.so.1 libc.so.6; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
-            cp -v /usr/local/libetpan/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
 
