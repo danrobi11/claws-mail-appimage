@@ -30,35 +30,16 @@ jobs:
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
-          echo "Configuring Nettle..."
-          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
-          echo "Building Nettle core libraries..."
-          make -j$(nproc) libnettle.so libhogweed.so || { echo "Nettle library build failed"; exit 1; }
-          echo "Checking built libraries before proceeding:"
-          ls -l libnettle* libhogweed* || { echo "Libraries not built"; exit 1; }
-          echo "Building remaining Nettle components..."
-          make -j$(nproc) all || { echo "Nettle full build failed"; exit 1; }
-          echo "Installing Nettle..."
-          sudo make install || { echo "Nettle install failed"; exit 1; }
-          echo "Checking Nettle headers:"
-          ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
-          echo "Checking Nettle libs (static and shared):"
-          ls -l /usr/local/lib/libnettle* /usr/local/lib/libhogweed* || echo "Nettle libs not found"
-          echo "Checking Nettle pkg-config:"
-          ls -l /usr/local/lib/pkgconfig/nettle.pc || echo "nettle.pc not found"
+          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared
+          make -j$(nproc)
+          sudo make install
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          echo "Nettle version:"
-          pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
 
       - name: Build and install GnuTLS with musl
         run: |
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
-          [ -f Makefile ] && make distclean || true
-          export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
-          export NETTLE_CFLAGS="-I/usr/local/include"
-          export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
           CC=musl-gcc ./configure --prefix=/usr/local \
             --with-included-libtasn1 \
             --with-included-unistring \
@@ -66,22 +47,10 @@ jobs:
             --disable-guile \
             --disable-doc \
             --disable-brotli \
-            --without-brotli \
             --with-nettle-mini \
-            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
+            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
           make -j$(nproc)
           sudo make install
-          echo "Checking GnuTLS headers:"
-          ls -l /usr/local/include/gnutls/ || echo "GnuTLS headers not found"
-          echo "Checking GnuTLS libs:"
-          ls -l /usr/local/lib/libgnutls* || echo "GnuTLS libs not found"
-
-      - name: Upload GnuTLS config.log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gnutls-config-log
-          path: gnutls-3.7.8/config.log
 
       - name: Build and install libetpan with musl
         run: |
@@ -91,10 +60,6 @@ jobs:
           CC=musl-gcc ./configure --prefix=/usr/local
           make -j$(nproc)
           sudo make install
-          echo "Checking libetpan headers:"
-          ls -l /usr/local/include/libetpan/ || echo "libetpan headers not found"
-          echo "Checking libetpan libs:"
-          ls -l /usr/local/lib/libetpan* || echo "libetpan libs not found"
 
       - name: Clone Claws Mail source
         run: |
@@ -107,9 +72,9 @@ jobs:
           cd claws-mail
           ./autogen.sh
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          CC=gcc CFLAGS="-I/usr/local/include -g" LDFLAGS="-L/usr/local/lib" \
+          CC=gcc CFLAGS="-I/usr/local/include -g -O0" LDFLAGS="-L/usr/local/lib" \
             ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
-          make -j$(nproc) CFLAGS="-I/usr/local/include -g"
+          make -j$(nproc) CFLAGS="-I/usr/local/include -g -O0"
           make install
 
       - name: Bundle libraries
@@ -195,13 +160,13 @@ jobs:
           fi
           chmod 644 /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png || true
 
-      - name: Bundle with linuxdeployqt
+      - name: Bundle with linuxdeployqt (no stripping)
         run: |
-          ./linuxdeployqt /tmp/appdir/usr/bin/claws-mail -bundle-non-qt-libs -unsupported-allow-new-glibc -verbose=2
+          ./linuxdeployqt /tmp/appdir/usr/bin/claws-mail -bundle-non-qt-libs -unsupported-allow-new-glibc -verbose=2 -no-strip
 
-      - name: Package AppImage
+      - name: Package AppImage (no stripping)
         run: |
-          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
+          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.3.0-x86_64.AppImage --no-strip
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
