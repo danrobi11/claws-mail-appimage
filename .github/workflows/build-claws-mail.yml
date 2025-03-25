@@ -146,9 +146,12 @@ jobs:
           echo "PATH: $PATH" >> "$LOGFILE"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" >> "$LOGFILE"
           echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
+          echo "System info:" >> "$LOGFILE"
+          uname -a >> "$LOGFILE" 2>&1
           echo "Checking dependencies..." >> "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
-          "$HERE/usr/bin/claws-mail" "$@" >> "$LOGFILE" 2>&1
+          echo "Running Claws Mail with debug..." >> "$LOGFILE"
+          "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
           EXIT_CODE=$?
           echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
           exit $EXIT_CODE
