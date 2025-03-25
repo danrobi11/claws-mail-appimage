@@ -31,9 +31,12 @@ jobs:
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
           CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp --enable-static --enable-shared
-          make -j$(nproc)
-          sudo make install
-          # Verify installation and pkg-config detection
+          make -j$(nproc) || { echo "Nettle make failed"; exit 1; }
+          # Check if libraries were built
+          echo "Checking built libraries before install:"
+          ls -l .libs/libnettle* .libs/libhogweed* || echo "Libraries not built"
+          sudo make install DESTDIR=/
+          # Verify installation
           echo "Checking Nettle headers:"
           ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
           echo "Checking Nettle libs (static and shared):"
