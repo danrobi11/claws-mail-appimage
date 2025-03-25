@@ -32,10 +32,8 @@ jobs:
           cd nettle-3.7.3
           echo "Configuring Nettle..."
           CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
-          echo "Building Nettle libraries..."
-          make -j$(nproc) nettle hogweed || { echo "Nettle library build failed"; exit 1; }
-          echo "Building Nettle examples..."
-          make -j$(nproc) || { echo "Nettle full build failed"; exit 1; }
+          echo "Building Nettle..."
+          make -j$(nproc) || { echo "Nettle build failed"; exit 1; }
           echo "Checking built libraries before install:"
           ls -l .libs/libnettle* .libs/libhogweed* || { echo "Libraries not built"; exit 1; }
           echo "Installing Nettle..."
