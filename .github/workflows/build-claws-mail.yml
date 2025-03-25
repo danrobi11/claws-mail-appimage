@@ -35,7 +35,7 @@ jobs:
           echo "Building Nettle..."
           make -j$(nproc) || { echo "Nettle build failed"; exit 1; }
           echo "Checking built libraries before install:"
-          ls -l .libs/libnettle* .libs/libhogweed* || { echo "Libraries not built"; exit 1; }
+          ls -l .libs/libnettle* .libs/libhogweed* || { echo "Libraries not built in .libs/"; exit 1; }
           echo "Installing Nettle..."
           sudo make install || { echo "Nettle install failed"; exit 1; }
           # Verify installation
@@ -98,9 +98,6 @@ jobs:
           ls -l /usr/local/include/libetpan/ || echo "libetpan headers not found"
           echo "Checking libetpan libs:"
           ls -l /usr/local/lib/libetpan* || echo "libetpan libs not found"
-          echo "Checking libetpan pkg-config:"
-          ls -l /usr/local/lib/pkgconfig/libetpan.pc || echo "libetpan.pc not found"
-          pkg-config --modversion libetpan || echo "pkg-config cannot find libetpan"
 
       - name: Clone Claws Mail source
         run: |
