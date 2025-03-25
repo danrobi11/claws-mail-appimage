@@ -21,7 +21,7 @@ jobs:
           sudo apt update
           sudo apt install -y --no-install-recommends build-essential git wget musl-tools musl-dev \
             autoconf automake libtool gettext pkg-config make binutils \
-            libgtk-3-dev libglib2.0-dev \
+            libgtk-3-dev libglib2.0-dev libpango1.0-dev libcairo2-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev libfuse2 xterm
 
@@ -72,8 +72,8 @@ jobs:
           cd claws-mail
           ./autogen.sh
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          CC=gcc CFLAGS="-I/usr/local/include -g" LDFLAGS="-L/usr/local/lib -g" \
-            ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
+          CC=gcc CFLAGS="-I/usr/local/include -g" LDFLAGS="-L/usr/local/lib" \
+            ./configure --prefix=/tmp/appdir/usr --disable-manual
           make -j$(nproc) CFLAGS="-I/usr/local/include -g"
           make install
 
@@ -83,7 +83,8 @@ jobs:
           for lib in \
             libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
             libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
-            libcompface.so.1 libc.so.6 libgpg-error.so.0; do
+            libcompface.so.1 libc.so.6 libgpg-error.so.0 libpangocairo-1.0.so.0 \
+            libpango-1.0.so.0 libcairo.so.2; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
