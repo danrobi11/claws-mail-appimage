@@ -21,7 +21,7 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential git wget musl-tools musl-dev \
             autoconf automake libtool gettext \
-            libgtk-3-dev libglib2.0-dev libgnutls28-dev \
+            libgtk-3-dev libglib2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev xterm
 
@@ -38,6 +38,27 @@ jobs:
           ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
           echo "Checking Nettle libs:"
           ls -l /usr/local/lib/libnettle* || echo "Nettle libs not found"
+
+      - name: Build and install GnuTLS with musl
+        run: |
+          wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
+          tar -xJf gnutls-3.7.8.tar.xz
+          cd gnutls-3.7.8
+          CC=musl-gcc ./configure --prefix=/usr/local \
+            --with-included-libtasn1 \
+            --with-included-unistring \
+            --without-p11-kit \
+            --disable-guile \
+            --disable-doc \
+            --with-nettle-mini \
+            --with-libnettle-prefix=/usr/local
+          make -j$(nproc)
+          sudo make install
+          # Verify installation
+          echo "Checking GnuTLS headers:"
+          ls -l /usr/local/include/gnutls/ || echo "GnuTLS headers not found"
+          echo "Checking GnuTLS libs:"
+          ls -l /usr/local/lib/libgnutls* || echo "GnuTLS libs not found"
 
       - name: Build and install libetpan
         run: |
