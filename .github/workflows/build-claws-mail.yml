@@ -25,38 +25,31 @@ jobs:
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev xterm
 
-      - name: Build and install Nettle with musl
-        run: |
-          wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
-          tar -xzf nettle-3.7.3.tar.gz
-          cd nettle-3.7.3
-          CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp --enable-static
-          make -j$(nproc)
-          sudo make install
-          # Verify installation
-          echo "Nettle version:"; pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
-          echo "Nettle libs:"; ls -l /usr/local/lib/libnettle.a /usr/local/lib/libhogweed.a || echo "Nettle static libs not found"
+- name: Build and install Nettle with musl
+  run: |
+    wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
+    tar -xzf nettle-3.7.3.tar.gz
+    cd nettle-3.7.3
+    CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp --enable-static --enable-shared
+    make -j$(nproc)
+    sudo make install
+    # Verify Nettle installation
+    echo "Nettle version:"; pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
+    echo "Nettle libs:"; ls -l /usr/local/lib/libnettle* || echo "Nettle libs not found"
 
-      - name: Build and install GnuTLS with musl
-        run: |
-          wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
-          tar -xJf gnutls-3.7.8.tar.xz
-          cd gnutls-3.7.8
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          export NETTLE_CFLAGS="-I/usr/local/include"
-          export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
-          CC=musl-gcc ./configure --prefix=/usr/local \
-            --with-included-libtasn1 \
-            --with-included-unistring \
-            --without-p11-kit \
-            --disable-guile \
-            --disable-doc \
-            --with-nettle-mini \
-            --with-libnettle-prefix=/usr/local \
-            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
-          make -j$(nproc)
-          sudo make install
-
+- name: Build and install GnuTLS with musl
+  run: |
+    wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
+    tar -xJf gnutls-3.7.8.tar.xz
+    cd gnutls-3.7.8
+    export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+    export NETTLE_CFLAGS="-I/usr/local/include"
+    export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
+    CC=musl-gcc ./configure --prefix=/usr/local \
+      --with-included-libtasn1 \
+      --with-included-unistring \
+      --without-p11-kit \
+      
       - name: Upload GnuTLS config.log on failure
         if: failure()
         uses: actions/upload-artifact@v4
