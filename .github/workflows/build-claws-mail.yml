@@ -33,14 +33,17 @@ jobs:
           CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp
           make -j$(nproc)
           sudo make install
-          # Verify installation
+          # Verify installation and pkg-config detection
           echo "Checking Nettle headers:"
           ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
           echo "Checking Nettle libs:"
           ls -l /usr/local/lib/libnettle* || echo "Nettle libs not found"
           echo "Checking Nettle pkg-config:"
           ls -l /usr/local/lib/pkgconfig/nettle.pc || echo "nettle.pc not found"
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
+          pkg-config --cflags nettle || echo "pkg-config --cflags nettle failed"
+          pkg-config --libs nettle || echo "pkg-config --libs nettle failed"
 
       - name: Build and install GnuTLS with musl
         run: |
