@@ -20,7 +20,7 @@ jobs:
           sudo add-apt-repository universe
           sudo apt update
           sudo apt install -y build-essential git wget musl-tools musl-dev \
-            autoconf automake libtool gettext pkg-config \
+            autoconf automake libtool gettext pkg-config make binutils \
             libgtk-3-dev libglib2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev xterm
@@ -31,14 +31,14 @@ jobs:
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
           echo "Configuring Nettle..."
-          CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp --enable-static --enable-shared > nettle-configure.log 2>&1 || { cat nettle-configure.log; exit 1; }
+          CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
           echo "Building Nettle..."
-          make -j$(nproc) > nettle-make.log 2>&1 || { cat nettle-make.log; exit 1; }
+          make -j$(nproc) || { echo "Nettle make failed"; exit 1; }
           # Check if libraries were built
           echo "Checking built libraries before install:"
           ls -l .libs/libnettle* .libs/libhogweed* || { echo "Libraries not built"; exit 1; }
           echo "Installing Nettle..."
-          sudo make install > nettle-install.log 2>&1 || { cat nettle-install.log; exit 1; }
+          sudo make install || { echo "Nettle install failed"; exit 1; }
           # Verify installation
           echo "Checking Nettle headers:"
           ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
@@ -53,16 +53,6 @@ jobs:
           pkg-config --cflags nettle || echo "pkg-config --cflags nettle failed"
           echo "Nettle libs:"
           pkg-config --libs nettle || echo "pkg-config --libs nettle failed"
-
-      - name: Upload Nettle build logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nettle-build-logs
-          path: |
-            nettle-3.7.3/nettle-configure.log
-            nettle-3.7.3/nettle-make.log
-            nettle-3.7.3/nettle-install.log
 
       - name: Build and install GnuTLS with musl
         run: |
