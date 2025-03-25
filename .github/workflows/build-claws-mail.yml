@@ -23,7 +23,7 @@ jobs:
             autoconf automake libtool gettext pkg-config make binutils \
             libgtk-3-dev libglib2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
-            fuse3 libfuse3-dev xterm
+            fuse3 libfuse3-dev libfuse2 xterm
 
       - name: Build and install Nettle with musl
         run: |
@@ -40,7 +40,6 @@ jobs:
           make -j$(nproc) all || { echo "Nettle full build failed"; exit 1; }
           echo "Installing Nettle..."
           sudo make install || { echo "Nettle install failed"; exit 1; }
-          # Verify installation
           echo "Checking Nettle headers:"
           ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
           echo "Checking Nettle libs (static and shared):"
@@ -167,7 +166,15 @@ jobs:
 
       - name: Copy icon
         run: |
-          wget -O /tmp/appdir/claws-mail.png https://www.claws-mail.org/img/claws-mail_icon_64.png || echo "Icon download failed"
+          mkdir -p /tmp/appdir/usr/share/icons/hicolor/48x48/apps
+          if [ -f "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" ]; then
+            cp "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" /tmp/appdir/claws-mail.png
+            cp "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" /tmp/appdir/usr/share/icons/hicolor/48x48/apps/
+          else
+            wget -O /tmp/appdir/claws-mail.png "https://www.claws-mail.org/images/claws-mail_icon_48.png" || echo "Icon download failed"
+            cp /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/
+          fi
+          chmod 644 /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png
 
       - name: Bundle with linuxdeployqt
         run: |
