@@ -30,7 +30,7 @@ jobs:
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
-          CC=musl-gcc ./configure --prefix=/usr/local
+          CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp
           make -j$(nproc)
           sudo make install
           # Verify installation
@@ -54,7 +54,8 @@ jobs:
             --disable-guile \
             --disable-doc \
             --with-nettle-mini \
-            --with-libnettle-prefix=/usr/local
+            --with-libnettle-prefix=/usr/local \
+            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
           make -j$(nproc)
           sudo make install
           # Verify installation
