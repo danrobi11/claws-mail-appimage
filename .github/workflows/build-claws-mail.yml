@@ -33,20 +33,9 @@ jobs:
           CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp --enable-static
           make -j$(nproc)
           sudo make install
-          # Verify installation and pkg-config detection
-          echo "Checking Nettle headers:"
-          ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
-          echo "Checking Nettle static libs:"
-          ls -l /usr/local/lib/libnettle.a /usr/local/lib/libhogweed.a || echo "Nettle static libs not found"
-          echo "Checking Nettle pkg-config:"
-          ls -l /usr/local/lib/pkgconfig/nettle.pc || echo "nettle.pc not found"
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          echo "Nettle version:"
-          pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
-          echo "Nettle cflags:"
-          pkg-config --cflags nettle || echo "pkg-config --cflags nettle failed"
-          echo "Nettle libs:"
-          pkg-config --libs nettle || echo "pkg-config --libs nettle failed"
+          # Verify installation
+          echo "Nettle version:"; pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
+          echo "Nettle libs:"; ls -l /usr/local/lib/libnettle.a /usr/local/lib/libhogweed.a || echo "Nettle static libs not found"
 
       - name: Build and install GnuTLS with musl
         run: |
@@ -67,11 +56,6 @@ jobs:
             CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
-          # Verify installation
-          echo "Checking GnuTLS headers:"
-          ls -l /usr/local/include/gnutls/ || echo "GnuTLS headers not found"
-          echo "Checking GnuTLS libs:"
-          ls -l /usr/local/lib/libgnutls* || echo "GnuTLS libs not found"
 
       - name: Upload GnuTLS config.log on failure
         if: failure()
@@ -88,14 +72,6 @@ jobs:
           CC=musl-gcc ./configure --prefix=/usr/local
           make -j$(nproc)
           sudo make install
-          # Debug: Verify installation
-          echo "Checking libetpan headers:"
-          ls -l /usr/local/include/libetpan/ || echo "libetpan headers not found"
-          echo "Checking libetpan libs:"
-          ls -l /usr/local/lib/libetpan* || echo "libetpan libs not found"
-          echo "Checking libetpan pkg-config:"
-          ls -l /usr/local/lib/pkgconfig/libetpan.pc || echo "libetpan.pc not found"
-          pkg-config --modversion libetpan || echo "pkg-config cannot find libetpan"
 
       - name: Clone Claws Mail source
         run: |
@@ -139,17 +115,7 @@ jobs:
           HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="$HERE/usr/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:$PATH"
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
-          LOGFILE="$HOME/claws-mail-appimage-run.log"
-          echo "Starting Claws Mail..." >> "$LOGFILE"
-          echo "PATH: $PATH" >> "$LOGFILE"
-          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" >> "$LOGFILE"
-          echo "LOGFILE: $LOGFILE" >> "$LOGFILE"
-          echo "Checking dependencies..." >> "$LOGFILE"
-          ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
-          "$HERE/usr/bin/claws-mail" "$@" >> "$LOGFILE" 2>&1
-          EXIT_CODE=$?
-          echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
-          exit $EXIT_CODE
+          "$HERE/usr/bin/claws-mail" "$@"
           EOF
           chmod +x /tmp/appdir/AppRun
 
