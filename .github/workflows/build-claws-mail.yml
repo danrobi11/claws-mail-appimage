@@ -30,19 +30,22 @@ jobs:
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
-          CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp
+          CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp --enable-static
           make -j$(nproc)
           sudo make install
           # Verify installation and pkg-config detection
           echo "Checking Nettle headers:"
           ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
-          echo "Checking Nettle libs:"
-          ls -l /usr/local/lib/libnettle* || echo "Nettle libs not found"
+          echo "Checking Nettle static libs:"
+          ls -l /usr/local/lib/libnettle.a /usr/local/lib/libhogweed.a || echo "Nettle static libs not found"
           echo "Checking Nettle pkg-config:"
           ls -l /usr/local/lib/pkgconfig/nettle.pc || echo "nettle.pc not found"
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          echo "Nettle version:"
           pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
+          echo "Nettle cflags:"
           pkg-config --cflags nettle || echo "pkg-config --cflags nettle failed"
+          echo "Nettle libs:"
           pkg-config --libs nettle || echo "pkg-config --libs nettle failed"
 
       - name: Build and install GnuTLS with musl
