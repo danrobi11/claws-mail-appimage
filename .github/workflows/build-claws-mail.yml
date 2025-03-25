@@ -58,8 +58,8 @@ jobs:
             --disable-guile \
             --disable-doc \
             --with-nettle-mini \
-            --with-nettle-prefix=/usr/local \
-            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
+            --with-libnettle-prefix=/usr/local \
+            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
           # Verify installation
@@ -67,6 +67,13 @@ jobs:
           ls -l /usr/local/include/gnutls/ || echo "GnuTLS headers not found"
           echo "Checking GnuTLS libs:"
           ls -l /usr/local/lib/libgnutls* || echo "GnuTLS libs not found"
+
+      - name: Upload GnuTLS config.log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnutls-config-log
+          path: gnutls-3.7.8/config.log
 
       - name: Build and install libetpan
         run: |
