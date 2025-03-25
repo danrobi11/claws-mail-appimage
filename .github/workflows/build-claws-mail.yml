@@ -138,14 +138,14 @@ jobs:
           HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="$HERE/usr/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:$PATH"
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
-          # Ensure XDG_RUNTIME_DIR is set for socket directory
-          [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR="/tmp"
+          # Force XDG_RUNTIME_DIR to a unique, writable location
+          export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
+          mkdir -p "$XDG_RUNTIME_DIR" || { echo "Failed to create $XDG_RUNTIME_DIR" >> "$LOGFILE"; exit 1; }
           LOGFILE="$HOME/claws-mail-appimage-run.log"
           echo "Starting Claws Mail..." >> "$LOGFILE"
           echo "PATH: $PATH" >> "$LOGFILE"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" >> "$LOGFILE"
           echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
-          echo "LOGFILE: $LOGFILE" >> "$LOGFILE"
           echo "Checking dependencies..." >> "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
           "$HERE/usr/bin/claws-mail" "$@" >> "$LOGFILE" 2>&1
