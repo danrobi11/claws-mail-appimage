@@ -141,9 +141,13 @@ jobs:
           # Force XDG_RUNTIME_DIR to a unique, writable location
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           mkdir -p "$XDG_RUNTIME_DIR" || { echo "Failed to create $XDG_RUNTIME_DIR" >> "$LOGFILE"; exit 1; }
-          # Ensure config directory exists
+          # Ensure config directory and minimal clawsrc exist
           CONFIG_DIR="$HOME/.claws-mail"
           mkdir -p "$CONFIG_DIR" || { echo "Failed to create $CONFIG_DIR" >> "$LOGFILE"; exit 1; }
+          if [ ! -f "$CONFIG_DIR/clawsrc" ]; then
+            echo "[claws-mail]" > "$CONFIG_DIR/clawsrc"
+            echo "version=4" >> "$CONFIG_DIR/clawsrc"
+          fi
           LOGFILE="$HOME/claws-mail-appimage-run.log"
           echo "Starting Claws Mail..." >> "$LOGFILE"
           echo "PATH: $PATH" >> "$LOGFILE"
@@ -152,6 +156,7 @@ jobs:
           echo "CONFIG_DIR: $CONFIG_DIR" >> "$LOGFILE"
           echo "System info:" >> "$LOGFILE"
           uname -a >> "$LOGFILE" 2>&1
+          ldd /lib/ld-musl-x86_64.so.1 >> "$LOGFILE" 2>&1 || echo "musl not found" >> "$LOGFILE"
           echo "Checking dependencies..." >> "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
           echo "Running Claws Mail with debug..." >> "$LOGFILE"
