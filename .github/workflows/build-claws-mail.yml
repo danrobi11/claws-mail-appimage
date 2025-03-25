@@ -21,12 +21,23 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential git wget musl-tools musl-dev \
             autoconf automake libtool gettext \
-            libgtk-3-dev libglib2.0-dev libgnutls28-dev nettle-dev \
+            libgtk-3-dev libglib2.0-dev libgnutls28-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev xterm
-          # Debug: Verify Nettle headers
+
+      - name: Build and install Nettle with musl
+        run: |
+          wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
+          tar -xzf nettle-3.7.3.tar.gz
+          cd nettle-3.7.3
+          CC=musl-gcc ./configure --prefix=/usr/local
+          make -j$(nproc)
+          sudo make install
+          # Verify installation
           echo "Checking Nettle headers:"
-          ls -l /usr/include/nettle/ || echo "Nettle headers not found"
+          ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
+          echo "Checking Nettle libs:"
+          ls -l /usr/local/lib/libnettle* || echo "Nettle libs not found"
 
       - name: Build and install libetpan
         run: |
@@ -56,9 +67,9 @@ jobs:
           cd claws-mail
           ./autogen.sh
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          CC=musl-gcc CFLAGS="-I/usr/local/include -I/usr/include/nettle" LDFLAGS="-L/usr/local/lib" \
+          CC=musl-gcc CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" \
             ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
-          make -j$(nproc) CFLAGS="-I/usr/local/include -I/usr/include/nettle"
+          make -j$(nproc) CFLAGS="-I/usr/local/include"
           make install
 
       - name: Bundle libraries
