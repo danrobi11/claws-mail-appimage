@@ -66,8 +66,9 @@ jobs:
         run: |
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
+          git checkout 1.9.4  # Use a newer tagged release
           ./autogen.sh
-          CC=musl-gcc ./configure --prefix=/usr/local
+          CC=musl-gcc CFLAGS="-g -O0" ./configure --prefix=/usr/local --enable-debug
           make -j$(nproc)
           sudo make install
 
@@ -130,6 +131,7 @@ jobs:
           export GNUTLS_DEBUG_LEVEL=9
           export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/usr/share/ca-certificates/ca-certificates.crt"
           export SSL_CERT_FILE="$HERE/usr/share/ca-certificates/ca-certificates.crt"
+          export LIBETPAN_DEBUG=1  # Enable libetpan debug
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create $XDG_RUNTIME_DIR/claws-mail" >> "$LOGFILE"; exit 1; }
           CONFIG_DIR="$HOME/.claws-mail"
@@ -153,6 +155,7 @@ jobs:
           echo "GIO_EXTRA_MODULES: $GIO_EXTRA_MODULES" >> "$LOGFILE"
           echo "GNUTLS_SYSTEM_PRIORITY_FILE: $GNUTLS_SYSTEM_PRIORITY_FILE" >> "$LOGFILE"
           echo "SSL_CERT_FILE: $SSL_CERT_FILE" >> "$LOGFILE"
+          echo "LIBETPAN_DEBUG: $LIBETPAN_DEBUG" >> "$LOGFILE"
           echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
           echo "CONFIG_DIR: $CONFIG_DIR" >> "$LOGFILE"
           echo "System info:" >> "$LOGFILE"
