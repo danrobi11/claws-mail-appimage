@@ -35,11 +35,8 @@ jobs:
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
-          echo "Configuring Nettle..."
           CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
-          echo "Building Nettle..."
           make -j$(nproc) || { echo "Nettle build failed"; exit 1; }
-          echo "Installing Nettle..."
           sudo make install || { echo "Nettle install failed"; exit 1; }
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 
