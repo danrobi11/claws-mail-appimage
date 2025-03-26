@@ -1,4 +1,4 @@
-name: Build Claws Mail AppImage
+name: Build Claws Mail Portable
 
 on:
   push:
@@ -24,39 +24,39 @@ jobs:
             autoconf automake libtool gettext pkg-config make binutils \
             libgtk-3-dev libglib2.0-dev libgdk-pixbuf2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
-            glib-networking ca-certificates fuse3 libfuse3-dev libfuse2 xterm \
-            hicolor-icon-theme
+            glib-networking ca-certificates xterm hicolor-icon-theme
 
-      - name: Build and install Nettle with musl
+      - name: Build and install Nettle with musl (static)
         run: |
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
-          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared
+          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local/musl --libdir=/usr/local/musl/lib --enable-mini-gmp --enable-static --disable-shared
           make -j$(nproc)
           sudo make install
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export PKG_CONFIG_PATH="/usr/local/musl/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-      - name: Build and install GnuTLS with glibc
+      - name: Build and install GnuTLS with musl (static)
         run: |
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.5.tar.xz
           tar -xJf gnutls-3.8.5.tar.xz
           cd gnutls-3.8.5
           [ -f Makefile ] && make distclean || true
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          ./configure --prefix=/usr/local \
+          export PKG_CONFIG_PATH="/usr/local/musl/lib/pkgconfig:$PKG_CONFIG_PATH"
+          CC=musl-gcc ./configure --prefix=/usr/local/musl \
             --with-included-libtasn1 \
             --with-included-unistring \
             --without-p11-kit \
             --disable-guile \
             --disable-doc \
             --disable-brotli \
+            --enable-static --disable-shared \
             --with-default-trust-store-file=/etc/ssl/certs/ca-certificates.crt \
-            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
+            CFLAGS="-I/usr/local/musl/include" LDFLAGS="-L/usr/local/musl/lib"
           make -j$(nproc)
           sudo make install
 
-      - name: Build and install libetpan with musl
+      - name: Build and install libetpan with musl (static)
         run: |
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
@@ -69,97 +69,70 @@ jobs:
               if (getenv("LIBETPAN_DEBUG")) fprintf(stderr, "libetpan: Accepted Yahoo greeting: %s\\n", line); \
             }' src/low-level/imap/mailimap_parser.c
           ./autogen.sh
-          CC=musl-gcc CFLAGS="-g -O0 -DDEBUG" ./configure --prefix=/usr/local --enable-debug
+          CC=musl-gcc CFLAGS="-g -O0 -DDEBUG" LDFLAGS="-static" ./configure --prefix=/usr/local/musl --enable-static --disable-shared --enable-debug
           make -j$(nproc)
           sudo make install
 
-      - name: Clone Claws Mail source
+      - name: Clone and build Claws Mail
         run: |
           git clone https://git.claws-mail.org/readonly/claws.git claws-mail
           cd claws-mail
           git checkout claws-4.3.0 || echo "Tag claws-4.3.0 not found; using latest commit"
-
-      - name: Build Claws Mail with debug symbols and GTK3
-        run: |
-          cd claws-mail
           ./autogen.sh
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          CC=gcc CFLAGS="-I/usr/local/include -g -O0" LDFLAGS="-L/usr/local/lib" \
-            ./configure --prefix=/tmp/appdir/usr \
+          export PKG_CONFIG_PATH="/usr/local/musl/lib/pkgconfig:$PKG_CONFIG_PATH"
+          CC=gcc CFLAGS="-I/usr/local/musl/include -g -O0" LDFLAGS="-L/usr/local/musl/lib" \
+            ./configure --prefix=/tmp/claws-portable \
             --disable-manual \
             --enable-gnutls \
             --enable-libetpan \
             --enable-compface \
-            --enable-startup-notification
-          make -j$(nproc) CFLAGS="-I/usr/local/include -g -O0"
-          cp src/claws-mail /tmp/claws-mail-unstripped
+            --enable-startup-notification \
+            --enable-static
+          make -j$(nproc)
           make install
 
-      - name: Bundle libraries, certificates, and icon theme
+      - name: Bundle libraries and assets
         run: |
-          mkdir -p /tmp/appdir/usr/lib
+          mkdir -p /tmp/claws-portable/lib /tmp/claws-portable/share/icons/hicolor /tmp/claws-portable/etc/ssl/certs
+          # Bundle GTK and gdk-pixbuf shared libs (can't fully static link these)
           for lib in \
             libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
-            libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
-            libcompface.so.1 libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2 \
             libgio-2.0.so.0 libpango-1.0.so.0 libpangocairo-1.0.so.0 libcairo.so.2 \
-            libgdk_pixbuf-2.0.so.0 libnettle.so.8 libhogweed.so.6 libp11-kit.so.0 \
-            libidn2.so.0 libunistring.so.5 libtasn1.so.6 libffi.so.8 libpng16.so.16 libz.so.1; do
-            cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
-            cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
-            cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            libgdk_pixbuf-2.0.so.0 libnotify.so.4 libstartup-notification-1.so.0 \
+            libcompface.so.1 libpng16.so.16 libz.so.1 libffi.so.8; do
+            cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/claws-portable/lib/ 2>/dev/null || \
+            cp -v /lib/x86_64-linux-gnu/$lib /tmp/claws-portable/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
-          # Bundle gdk-pixbuf loaders and query tool
-          mkdir -p /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders
-          cp -r /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders/* /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/
-          cp /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders /tmp/appdir/usr/bin/
-          cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/appdir/usr/lib/ 2>/dev/null || true
-          mkdir -p /tmp/appdir/etc/ssl/certs
-          cp -r /etc/ssl/certs/*.pem /tmp/appdir/etc/ssl/certs/
-          mkdir -p /tmp/appdir/usr/share/icons/hicolor
-          cp -r /usr/share/icons/hicolor/* /tmp/appdir/usr/share/icons/hicolor/
-          cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
-          cp /usr/local/bin/gnutls-cli /tmp/appdir/usr/bin/
+          # Bundle gdk-pixbuf loaders
+          mkdir -p /tmp/claws-portable/lib/gdk-pixbuf-2.0/2.10.0/loaders
+          cp -r /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders/* /tmp/claws-portable/lib/gdk-pixbuf-2.0/2.10.0/loaders/
+          cp /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders /tmp/claws-portable/bin/
+          # Bundle GIO modules
+          cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/claws-portable/lib/ 2>/dev/null || true
+          # Bundle certificates and icons
+          cp -r /etc/ssl/certs/*.pem /tmp/claws-portable/etc/ssl/certs/
+          cp -r /usr/share/icons/hicolor/* /tmp/claws-portable/share/icons/hicolor/
           # Generate loaders.cache with relative paths
-          LD_LIBRARY_PATH=/tmp/appdir/usr/lib /tmp/appdir/usr/bin/gdk-pixbuf-query-loaders /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/* > /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
+          LD_LIBRARY_PATH=/tmp/claws-portable/lib /tmp/claws-portable/bin/gdk-pixbuf-query-loaders /tmp/claws-portable/lib/gdk-pixbuf-2.0/2.10.0/loaders/* > /tmp/claws-portable/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
 
-      - name: Download linuxdeployqt and appimagetool
+      - name: Create wrapper script
         run: |
-          wget -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage -O linuxdeployqt
-          wget -c https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
-          chmod +x linuxdeployqt appimagetool
-
-      - name: Create AppRun
-        run: |
-          cat << 'EOF' > /tmp/appdir/AppRun
+          cat << 'EOF' > /tmp/claws-portable/run-claws.sh
           #!/bin/bash
           HERE="$(dirname "$(readlink -f "${0}")")"
-          export PATH="$HERE/usr/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:$PATH"
-          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
-          export GIO_MODULE_DIR="$HERE/usr/lib"
-          export GIO_EXTRA_MODULES="$HERE/usr/lib"
-          export GDK_PIXBUF_MODULEDIR="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
-          export GDK_PIXBUF_MODULE_FILE="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
-          # Fallback to system loaders if bundled ones fail
-          if [ ! -f "$GDK_PIXBUF_MODULE_FILE" ] || [ ! -s "$GDK_PIXBUF_MODULE_FILE" ]; then
-            export GDK_PIXBUF_MODULEDIR="/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders"
-            export GDK_PIXBUF_MODULE_FILE=""
-          fi
-          export GNUTLS_DEBUG_LEVEL=99
-          export GNUTLS_LOG_UNBUFFERED=1
-          export GNUTLS_FORCE_CLIENT_CERT_VERIFY=1
+          export LD_LIBRARY_PATH="$HERE/lib:$LD_LIBRARY_PATH"
+          export GDK_PIXBUF_MODULEDIR="$HERE/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+          export GDK_PIXBUF_MODULE_FILE="$HERE/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+          export GIO_MODULE_DIR="$HERE/lib"
+          export GIO_EXTRA_MODULES="$HERE/lib"
           export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/etc/ssl/certs"
           export SSL_CERT_DIR="$HERE/etc/ssl/certs"
           export LIBETPAN_DEBUG=1
           export LIBETPAN_LOG_LEVEL=7
-          export XDG_DATA_DIRS="$HERE/usr/share:$XDG_DATA_DIRS"
+          export XDG_DATA_DIRS="$HERE/share:$XDG_DATA_DIRS"
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$$"
-          mkdir -p "$XDG_RUNTIME_DIR" || { echo "Failed to create $XDG_RUNTIME_DIR" >> "$LOGFILE"; exit 1; }
-          USER_ID=$(id -u)
-          if [ -d "/run/user/$USER_ID" ]; then
-            ln -sf "$XDG_RUNTIME_DIR" "/run/user/$USER_ID/claws-mail" 2>/dev/null || echo "Failed to symlink /run/user/$USER_ID/claws-mail" >> "$LOGFILE"
-          fi
+          mkdir -p "$XDG_RUNTIME_DIR" || { echo "Failed to create $XDG_RUNTIME_DIR" >&2; exit 1; }
           CONFIG_DIR="$HOME/.claws-mail"
           mkdir -p "$CONFIG_DIR"
           if [ ! -f "$CONFIG_DIR/clawsrc" ]; then
@@ -173,69 +146,30 @@ jobs:
             echo "[Account: 1]" > "$CONFIG_DIR/accountrc"
             echo "use_proxy=0" >> "$CONFIG_DIR/accountrc"
           fi
-          LOGFILE="$HOME/claws-mail-appimage-run.log"
+          LOGFILE="$HOME/claws-mail-run.log"
           GNUTLS_LOGFILE="$HOME/claws-mail-gnutls.log"
           echo "Starting Claws Mail..." | tee -a "$LOGFILE"
-          echo "PATH: $PATH" | tee -a "$LOGFILE"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" | tee -a "$LOGFILE"
-          echo "GIO_MODULE_DIR: $GIO_MODULE_DIR" | tee -a "$LOGFILE"
-          echo "GIO_EXTRA_MODULES: $GIO_EXTRA_MODULES" | tee -a "$LOGFILE"
           echo "GDK_PIXBUF_MODULEDIR: $GDK_PIXBUF_MODULEDIR" | tee -a "$LOGFILE"
           echo "GDK_PIXBUF_MODULE_FILE: $GDK_PIXBUF_MODULE_FILE" | tee -a "$LOGFILE"
-          echo "GNUTLS_SYSTEM_PRIORITY_FILE: $GNUTLS_SYSTEM_PRIORITY_FILE" | tee -a "$LOGFILE"
-          echo "SSL_CERT_DIR: $SSL_CERT_DIR" | tee -a "$LOGFILE"
-          echo "LIBETPAN_DEBUG: $LIBETPAN_DEBUG" | tee -a "$LOGFILE"
-          echo "LIBETPAN_LOG_LEVEL: $LIBETPAN_LOG_LEVEL" | tee -a "$LOGFILE"
+          echo "GIO_MODULE_DIR: $GIO_MODULE_DIR" | tee -a "$LOGFILE"
           echo "XDG_DATA_DIRS: $XDG_DATA_DIRS" | tee -a "$LOGFILE"
-          echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" | tee -a "$LOGFILE"
-          echo "CONFIG_DIR: $CONFIG_DIR" | tee -a "$LOGFILE"
           echo "System info:" | tee -a "$LOGFILE"
           uname -a | tee -a "$LOGFILE" 2>&1
-          ldd /lib/ld-musl-x86_64.so.1 | tee -a "$LOGFILE" 2>&1 || echo "musl not found" | tee -a "$LOGFILE"
-          "$HERE/usr/lib/ld-linux-x86-64.so.2" --version | tee -a "$LOGFILE" 2>&1 || echo "glibc version not found" | tee -a "$LOGFILE"
-          echo "Checking dependencies..." | tee -a "$LOGFILE"
-          ldd "$HERE/usr/bin/claws-mail" | tee -a "$LOGFILE" 2>&1
-          echo "Running Claws Mail with debug..." | tee -a "$LOGFILE"
-          stdbuf -o0 -e0 "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" 2>>"$GNUTLS_LOGFILE" | tee -a "$LOGFILE"
+          ldd "$HERE/bin/claws-mail" | tee -a "$LOGFILE" 2>&1
+          "$HERE/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" 2>>"$GNUTLS_LOGFILE" | tee -a "$LOGFILE"
           EXIT_CODE=${PIPESTATUS[0]}
           echo "Claws Mail exited with code $EXIT_CODE" | tee -a "$LOGFILE"
           exit $EXIT_CODE
           EOF
-          chmod +x /tmp/appdir/AppRun
+          chmod +x /tmp/claws-portable/run-claws.sh
 
-      - name: Create desktop file
+      - name: Package as tarball
         run: |
-          cat << 'EOF' > /tmp/appdir/claws-mail.desktop
-          [Desktop Entry]
-          Name=Claws Mail
-          Exec=claws-mail
-          Type=Application
-          Icon=claws-mail
-          Categories=Network;Email;
-          Terminal=false
-          EOF
+          tar -czf claws-mail-4.3.0-portable.tar.gz -C /tmp claws-portable
 
-      - name: Copy icon
-        run: |
-          mkdir -p /tmp/appdir/usr/share/icons/hicolor/48x48/apps
-          if [ -f "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" ]; then
-            cp "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" /tmp/appdir/claws-mail.png
-          else
-            wget -O /tmp/appdir/claws-mail.png "https://www.claws-mail.org/images/claws-mail_icon_48.png" || echo "Icon download failed"
-            cp /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png || true
-          fi
-          chmod 644 /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png || true
-
-      - name: Bundle with linuxdeployqt
-        run: |
-          ./linuxdeployqt /tmp/appdir/usr/bin/claws-mail -bundle-non-qt-libs -unsupported-allow-new-glibc -verbose=2
-
-      - name: Package AppImage
-        run: |
-          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
-
-      - name: Upload AppImage
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: claws-mail-appimage
-          path: claws-mail-4.3.0-x86_64.AppImage
+          name: claws-mail-portable
+          path: claws-mail-4.3.0-portable.tar.gz
