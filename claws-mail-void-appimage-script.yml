@@ -1,0 +1,199 @@
+name: Build Claws Mail AppImage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Enable universe repo and install dependencies
+        run: |
+          sudo apt update
+          sudo add-apt-repository universe
+          sudo apt update
+          sudo apt install -y --no-install-recommends build-essential git wget musl-tools musl-dev \
+            autoconf automake libtool gettext pkg-config make binutils \
+            libgtk-3-dev libglib2.0-dev \
+            libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
+            fuse3 libfuse3-dev libfuse2 xterm
+      - name: Build and install Nettle with musl
+        run: |
+          wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
+          tar -xzf nettle-3.7.3.tar.gz
+          cd nettle-3.7.3
+          echo "Configuring Nettle..."
+          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
+          echo "Building Nettle core libraries..."
+          make -j$(nproc) libnettle.so libhogweed.so || { echo "Nettle library build failed"; exit 1; }
+          echo "Checking built libraries before proceeding:"
+          ls -l libnettle* libhogweed* || { echo "Libraries not built"; exit 1; }
+          echo "Building remaining Nettle components..."
+          make -j$(nproc) all || { echo "Nettle full build failed"; exit 1; }
+          echo "Installing Nettle..."
+          sudo make install || { echo "Nettle install failed"; exit 1; }
+          echo "Checking Nettle headers:"
+          ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
+          echo "Checking Nettle libs (static and shared):"
+          ls -l /usr/local/lib/libnettle* /usr/local/lib/libhogweed* || echo "Nettle libs not found"
+          echo "Checking Nettle pkg-config:"
+          ls -l /usr/local/lib/pkgconfig/nettle.pc || echo "nettle.pc not found"
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          echo "Nettle version:"
+          pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
+      - name: Build and install GnuTLS with musl
+        run: |
+          wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
+          tar -xJf gnutls-3.7.8.tar.xz
+          cd gnutls-3.7.8
+          [ -f Makefile ] && make distclean || true
+          export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
+          export NETTLE_CFLAGS="-I/usr/local/include"
+          export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
+          CC=musl-gcc ./configure --prefix=/usr/local \
+            --with-included-libtasn1 \
+            --with-included-unistring \
+            --without-p11-kit \
+            --disable-guile \
+            --disable-doc \
+            --disable-brotli \
+            --without-brotli \
+            --with-nettle-mini \
+            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
+          make -j$(nproc)
+          sudo make install
+          echo "Checking GnuTLS headers:"
+          ls -l /usr/local/include/gnutls/ || echo "GnuTLS headers not found"
+          echo "Checking GnuTLS libs:"
+          ls -l /usr/local/lib/libgnutls* || echo "GnuTLS libs not found"
+      - name: Upload GnuTLS config.log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnutls-config-log
+          path: gnutls-3.7.8/config.log
+
+      - name: Build and install libetpan with musl
+        run: |
+          git clone https://github.com/dinhvh/libetpan.git
+          cd libetpan
+          ./autogen.sh
+          CC=musl-gcc ./configure --prefix=/usr/local
+          make -j$(nproc)
+          sudo make install
+          echo "Checking libetpan headers:"
+          ls -l /usr/local/include/libetpan/ || echo "libetpan headers not found"
+          echo "Checking libetpan libs:"
+          ls -l /usr/local/lib/libetpan* || echo "libetpan libs not found"
+      - name: Clone Claws Mail source
+        run: |
+          git clone https://git.claws-mail.org/readonly/claws.git claws-mail
+          cd claws-mail
+          git checkout claws-4.3.0 || echo "Tag claws-4.3.0 not found; using latest commit"
+      - name: Build Claws Mail with debug symbols and GTK3
+        run: |
+          cd claws-mail
+          ./autogen.sh
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          CC=gcc CFLAGS="-I/usr/local/include -g -O0" LDFLAGS="-L/usr/local/lib" \
+            ./configure --prefix=/tmp/appdir/usr --disable-manual
+          make -j$(nproc) CFLAGS="-I/usr/local/include -g -O0"
+          cp src/claws-mail /tmp/claws-mail-unstripped
+          make install
+      - name: Bundle libraries
+        run: |
+          mkdir -p /tmp/appdir/usr/lib
+          for lib in \
+            libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
+            libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
+            libcompface.so.1 libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2; do
+            cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            echo "Warning: $lib not found"
+          done
+          cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
+      - name: Download linuxdeployqt and appimagetool
+        run: |
+          wget -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage -O linuxdeployqt
+          wget -c https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x linuxdeployqt appimagetool
+      - name: Create AppRun
+        run: |
+          cat << 'EOF' > /tmp/appdir/AppRun
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export PATH="$HERE/usr/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:$PATH"
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+          export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
+          mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create $XDG_RUNTIME_DIR/claws-mail" >> "$LOGFILE"; exit 1; }
+          CONFIG_DIR="$HOME/.claws-mail"
+          mkdir -p "$CONFIG_DIR"
+          if [ ! -f "$CONFIG_DIR/clawsrc" ]; then
+            echo "[claws-mail]" > "$CONFIG_DIR/clawsrc"
+            echo "version=4" >> "$CONFIG_DIR/clawsrc"
+          fi
+          if [ ! -f "$CONFIG_DIR/folderitemrc" ]; then
+            echo "[folder_settings]" > "$CONFIG_DIR/folderitemrc"
+          fi
+          if [ ! -f "$CONFIG_DIR/accountrc" ]; then
+            echo "[account]" > "$CONFIG_DIR/accountrc"
+          fi
+          LOGFILE="$HOME/claws-mail-appimage-run.log"
+          echo "Starting Claws Mail..." >> "$LOGFILE"
+          echo "PATH: $PATH" >> "$LOGFILE"
+          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" >> "$LOGFILE"
+          echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
+          echo "CONFIG_DIR: $CONFIG_DIR" >> "$LOGFILE"
+          echo "System info:" >> "$LOGFILE"
+          uname -a >> "$LOGFILE" 2>&1
+          ldd /lib/ld-musl-x86_64.so.1 >> "$LOGFILE" 2>&1 || echo "musl not found" >> "$LOGFILE"
+          /lib64/ld-linux-x86-64.so.2 --version >> "$LOGFILE" 2>&1 || echo "glibc version not found" >> "$LOGFILE"
+          echo "Checking dependencies..." >> "$LOGFILE"
+          ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
+          echo "Running Claws Mail with debug..." >> "$LOGFILE"
+          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
+          EXIT_CODE=$?
+          echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
+          exit $EXIT_CODE
+          EOF
+          chmod +x /tmp/appdir/AppRun
+      - name: Create desktop file
+        run: |
+          cat << 'EOF' > /tmp/appdir/claws-mail.desktop
+          [Desktop Entry]
+          Name=Claws Mail
+          Exec=claws-mail
+          Type=Application
+          Icon=claws-mail
+          Categories=Network;Email;
+          Terminal=false
+          EOF
+      - name: Copy icon
+        run: |
+          mkdir -p /tmp/appdir/usr/share/icons/hicolor/48x48/apps
+          if [ -f "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" ]; then
+            cp "/tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png" /tmp/appdir/claws-mail.png
+          else
+            wget -O /tmp/appdir/claws-mail.png "https://www.claws-mail.org/images/claws-mail_icon_48.png" || echo "Icon download failed"
+            cp /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png || true
+          fi
+          chmod 644 /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png || true
+      - name: Bundle with linuxdeployqt
+        run: |
+          ./linuxdeployqt /tmp/appdir/usr/bin/claws-mail -bundle-non-qt-libs -unsupported-allow-new-glibc -verbose=2
+      - name: Package AppImage
+        run: |
+          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: claws-mail-appimage
+          path: claws-mail-4.3.0-x86_64.AppImage
