@@ -104,15 +104,16 @@ jobs:
             libcompface.so.1 libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2 \
             libgio-2.0.so.0 libpango-1.0.so.0 libpangocairo-1.0.so.0 libcairo.so.2 \
             libgdk_pixbuf-2.0.so.0 libnettle.so.8 libhogweed.so.6 libp11-kit.so.0 \
-            libidn2.so.0 libunistring.so.5 libtasn1.so.6 libffi.so.8; do
+            libidn2.so.0 libunistring.so.5 libtasn1.so.6 libffi.so.8 libpng16.so.16 libz.so.1; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
-          # Bundle gdk-pixbuf loaders
+          # Bundle gdk-pixbuf loaders and query tool
           mkdir -p /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders
           cp -r /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders/* /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/
+          cp /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders /tmp/appdir/usr/bin/
           cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/appdir/usr/lib/ 2>/dev/null || true
           mkdir -p /tmp/appdir/etc/ssl/certs
           cp -r /etc/ssl/certs/*.pem /tmp/appdir/etc/ssl/certs/
@@ -120,10 +121,10 @@ jobs:
           cp -r /usr/share/icons/hicolor/* /tmp/appdir/usr/share/icons/hicolor/
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
           cp /usr/local/bin/gnutls-cli /tmp/appdir/usr/bin/
-          # Generate loaders.cache
-          /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders > /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
+          # Generate loaders.cache with relative paths
+          LD_LIBRARY_PATH=/tmp/appdir/usr/lib /tmp/appdir/usr/bin/gdk-pixbuf-query-loaders /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/* > /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
 
-      - name: Download linuxdeployNATqt and appimagetool
+      - name: Download linuxdeployqt and appimagetool
         run: |
           wget -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage -O linuxdeployqt
           wget -c https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
@@ -140,6 +141,11 @@ jobs:
           export GIO_EXTRA_MODULES="$HERE/usr/lib"
           export GDK_PIXBUF_MODULEDIR="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
           export GDK_PIXBUF_MODULE_FILE="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+          # Fallback to system loaders if bundled ones fail
+          if [ ! -f "$GDK_PIXBUF_MODULE_FILE" ] || [ ! -s "$GDK_PIXBUF_MODULE_FILE" ]; then
+            export GDK_PIXBUF_MODULEDIR="/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders"
+            export GDK_PIXBUF_MODULE_FILE=""
+          fi
           export GNUTLS_DEBUG_LEVEL=99
           export GNUTLS_LOG_UNBUFFERED=1
           export GNUTLS_FORCE_CLIENT_CERT_VERIFY=1
