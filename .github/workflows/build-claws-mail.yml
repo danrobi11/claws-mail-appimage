@@ -102,15 +102,14 @@ jobs:
           cd claws-mail
           git checkout claws-4.3.0 || echo "Tag claws-4.3.0 not found; using latest commit"
 
-      - name: Build Claws Mail with debug symbols
+      - name: Build Claws Mail with debug symbols and GTK3
         run: |
           cd claws-mail
           ./autogen.sh
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           CC=gcc CFLAGS="-I/usr/local/include -g -O0" LDFLAGS="-L/usr/local/lib" \
-            ./configure --prefix=/tmp/appdir/usr --disable-manual --disable-gtk3
+            ./configure --prefix=/tmp/appdir/usr --disable-manual
           make -j$(nproc) CFLAGS="-I/usr/local/include -g -O0"
-          # Preserve unstripped binary
           cp src/claws-mail /tmp/claws-mail-unstripped
           make install
 
@@ -126,7 +125,6 @@ jobs:
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
-          # Replace stripped binary with unstripped one
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
 
       - name: Download linuxdeployqt and appimagetool
