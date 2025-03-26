@@ -61,7 +61,6 @@ jobs:
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
           git checkout 1.9.4
-          # Refined patch for Yahoo's greeting
           sed -i '/if (status == MAILIMAP_NO_ERROR && r == MAILIMAP_ERROR_PARSE) {/a\
             if (strncmp(line, "* OK Welcome!", 12) == 0) { \
               mailimap->imap_response = line; \
@@ -216,9 +215,9 @@ jobs:
         run: |
           ./linuxdeployqt /tmp/appdir/usr/bin/claws-mail -bundle-non-qt-libs -unsupported-allow-new-glibc -verbose=2
 
-      - name: Package AppImage with /dev/urandom access
+      - name: Package AppImage
         run: |
-          ./appimagetool --no-appstream -v --dev-bind /dev/urandom /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
+          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
