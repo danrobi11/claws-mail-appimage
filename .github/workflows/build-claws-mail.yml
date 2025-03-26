@@ -119,7 +119,7 @@ jobs:
           for lib in \
             libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
             libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
-            libcompface.so.1 libc.so.6 libgpg-error.so.0; do
+            libcompface.so.1 libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
@@ -167,7 +167,7 @@ jobs:
           echo "Checking dependencies..." >> "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
           echo "Running Claws Mail with debug..." >> "$LOGFILE"
-          "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
+          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
           EXIT_CODE=$?
           echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
           exit $EXIT_CODE
