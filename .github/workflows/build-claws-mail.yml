@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,10 +19,15 @@ jobs:
           sudo apt update
           sudo add-apt-repository universe
           sudo apt update
-          sudo apt install -y --no-install-recommends build-essential git wget musl-tools musl-dev \
+          sudo apt install -y --no-install-recommends \
+            build-essential git wget musl-tools musl-dev \
             autoconf automake libtool gettext pkg-config make binutils \
-            libgtk-3-dev libglib2.0-dev \
+            libgtk-3-dev libglib2.0-dev libgdk-pixbuf2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
+            libpango1.0-dev libcairo2-dev libxml2-dev libxpm-dev \
+            libx11-dev libxext-dev libxi-dev libxrender-dev libxinerama-dev \
+            libxcursor-dev libxdamage-dev libxcomposite-dev libxrandr-dev \
+            libthai-dev libdatrie-dev glib-networking \
             fuse3 libfuse3-dev libfuse2 xterm
 
       - name: Build and install Nettle with musl
@@ -108,7 +113,12 @@ jobs:
           ./autogen.sh
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           CC=gcc CFLAGS="-I/usr/local/include -g -O0" LDFLAGS="-L/usr/local/lib" \
-            ./configure --prefix=/tmp/appdir/usr --disable-manual
+            ./configure --prefix=/tmp/appdir/usr \
+            --disable-manual \
+            --enable-gnutls \
+            --enable-libetpan \
+            --enable-compface \
+            --enable-startup-notification
           make -j$(nproc) CFLAGS="-I/usr/local/include -g -O0"
           cp src/claws-mail /tmp/claws-mail-unstripped
           make install
@@ -118,13 +128,29 @@ jobs:
           mkdir -p /tmp/appdir/usr/lib
           for lib in \
             libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
-            libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
-            libcompface.so.1 libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2; do
+            libgmodule-2.0.so.0 libpango-1.0.so.0 libpangocairo-1.0.so.0 \
+            libcairo.so.2 libgdk_pixbuf-2.0.so.0 libgio-2.0.so.0 \
+            libgnutls.so.30 libnettle.so.8 libhogweed.so.6 libcompface.so.1 \
+            libnotify.so.4 libstartup-notification-1.so.0 libetpan.so.20 \
+            libpangoft2-1.0.so.0 libfontconfig.so.1 libfribidi.so.0 \
+            libcairo-gobject.so.2 libatk-1.0.so.0 libepoxy.so.0 libXi.so.6 \
+            libXfixes.so.3 libxkbcommon.so.0 libwayland-cursor.so.0 \
+            libwayland-egl.so.1 libXext.so.6 libXcursor.so.1 libXdamage.so.1 \
+            libXcomposite.so.1 libXrandr.so.2 libXinerama.so.1 libthai.so.0 \
+            libpng16.so.16 libjpeg.so.8 libz.so.1 libmount.so.1 libselinux.so.1 \
+            libffi.so.8 libpcre2-8.so.0 libfreetype.so.6 libXrender.so.1 \
+            libxcb-render.so.0 libxcb-shm.so.0 libpixman-1.so.0 libp11-kit.so.0 \
+            libidn2.so.0 libunistring.so.5 libtasn1.so.6 libgmp.so.10 libXau.so.6 \
+            libXdmcp.so.6 libsystemd.so.0 libdatrie.so.1 libblkid.so.1 \
+            libbrotlidec.so.1 libbrotlicommon.so.1 libcap.so.2 libgcrypt.so.20 \
+            liblz4.so.1 liblzma.so.5 libzstd.so.1 libgpg-error.so.0; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
+          cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/appdir/usr/lib/ 2>/dev/null || true
+          cp -r /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders/* /tmp/appdir/usr/lib/ 2>/dev/null || true
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
 
       - name: Download linuxdeployqt and appimagetool
@@ -140,6 +166,7 @@ jobs:
           HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="$HERE/usr/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:$PATH"
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+          export GIO_MODULE_DIR="$HERE/usr/lib"
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create $XDG_RUNTIME_DIR/claws-mail" >> "$LOGFILE"; exit 1; }
           CONFIG_DIR="$HOME/.claws-mail"
@@ -163,11 +190,11 @@ jobs:
           echo "System info:" >> "$LOGFILE"
           uname -a >> "$LOGFILE" 2>&1
           ldd /lib/ld-musl-x86_64.so.1 >> "$LOGFILE" 2>&1 || echo "musl not found" >> "$LOGFILE"
-          /lib64/ld-linux-x86-64.so.2 --version >> "$LOGFILE" 2>&1 || echo "glibc version not found" >> "$LOGFILE"
+          ldconfig -p | grep ld-linux-x86-64.so.2 >> "$LOGFILE" 2>&1 || echo "glibc version not found" >> "$LOGFILE"
           echo "Checking dependencies..." >> "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
           echo "Running Claws Mail with debug..." >> "$LOGFILE"
-          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
+          "$HERE/usr/bin/claws-mail" --debug "$@" 2>>"$LOGFILE"
           EXIT_CODE=$?
           echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
           exit $EXIT_CODE
