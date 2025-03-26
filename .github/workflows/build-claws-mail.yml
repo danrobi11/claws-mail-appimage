@@ -66,9 +66,9 @@ jobs:
         run: |
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
-          git checkout 1.9.4  # Use a newer tagged release
+          git checkout 1.9.4
           ./autogen.sh
-          CC=musl-gcc CFLAGS="-g -O0" ./configure --prefix=/usr/local --enable-debug
+          CC=musl-gcc CFLAGS="-g -O0 -DDEBUG" ./configure --prefix=/usr/local --enable-debug  # Ensure debug is on
           make -j$(nproc)
           sudo make install
 
@@ -102,17 +102,18 @@ jobs:
             libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
             libcompface.so.1 libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2 \
             libgio-2.0.so.0 libpango-1.0.so.0 libpangocairo-1.0.so.0 libcairo.so.2 \
-            libgdk_pixbuf-2.0.so.0; do
+            libgdk_pixbuf-2.0.so.0 libnettle.so.8 libhogweed.so.6 libp11-kit.so.0 \
+            libidn2.so.0 libunistring.so.5 libtasn1.so.6 libffi.so.8; do  # Add GnuTLS deps
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
-            cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            cp -v /lib/x86_64-linux570-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
           cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/appdir/usr/lib/ 2>/dev/null || true
           mkdir -p /tmp/appdir/etc/ssl/certs
-          cp -r /etc/ssl/certs/*.pem /tmp/appdir/etc/ssl/certs/  # Bundle individual certs
+          cp -r /etc/ssl/certs/*.pem /tmp/appdir/etc/ssl/certs/
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
-          cp /usr/local/bin/gnutls-cli /tmp/appdir/usr/bin/  # Add gnutls-cli
+          cp /usr/local/bin/gnutls-cli /tmp/appdir/usr/bin/
 
       - name: Download linuxdeployqt and appimagetool
         run: |
@@ -130,10 +131,11 @@ jobs:
           export GIO_MODULE_DIR="$HERE/usr/lib"
           export GIO_EXTRA_MODULES="$HERE/usr/lib"
           export GNUTLS_DEBUG_LEVEL=9
-          export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/etc/ssl/certs"  # Directory of certs
-          export SSL_CERT_DIR="$HERE/etc/ssl/certs"  # For GIO TLS
+          export GNUTLS_FORCE_CLIENT_CERT_VERIFY=1
+          export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/etc/ssl/certs"
+          export SSL_CERT_DIR="$HERE/etc/ssl/certs"
           export LIBETPAN_DEBUG=1
-          export LIBETPAN_LOG_LEVEL=7  # Max verbosity
+          export LIBETPAN_LOG_LEVEL=7
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create $XDG_RUNTIME_DIR/claws-mail" >> "$LOGFILE"; exit 1; }
           CONFIG_DIR="$HOME/.claws-mail"
