@@ -38,7 +38,7 @@ jobs:
 
       - name: Build and install GnuTLS with glibc
         run: |
-          wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.5.tar.xz  # Newer version
+          wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.5.tar.xz
           tar -xJf gnutls-3.8.5.tar.xz
           cd gnutls-3.8.5
           [ -f Makefile ] && make distclean || true
@@ -138,6 +138,11 @@ jobs:
           export LIBETPAN_LOG_LEVEL=7
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$$"
           mkdir -p "$XDG_RUNTIME_DIR" || { echo "Failed to create $XDG_RUNTIME_DIR" >> "$LOGFILE"; exit 1; }
+          # Symlink /run/user/$UID to XDG_RUNTIME_DIR if it exists
+          USER_ID=$(id -u)
+          if [ -d "/run/user/$USER_ID" ]; then
+            ln -sf "$XDG_RUNTIME_DIR" "/run/user/$USER_ID/claws-mail" 2>/dev/null || echo "Failed to symlink /run/user/$USER_ID/claws-mail" >> "$LOGFILE"
+          fi
           CONFIG_DIR="$HOME/.claws-mail"
           mkdir -p "$CONFIG_DIR"
           if [ ! -f "$CONFIG_DIR/clawsrc" ]; then
@@ -170,7 +175,7 @@ jobs:
           echo "Checking dependencies..." >> "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
           echo "Running Claws Mail with debug..." >> "$LOGFILE"
-          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" --socket-dir "$XDG_RUNTIME_DIR" >> "$LOGFILE" 2>&1
+          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" >> "$LOGFILE" 2>&1
           EXIT_CODE=$?
           echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
           exit $EXIT_CODE
