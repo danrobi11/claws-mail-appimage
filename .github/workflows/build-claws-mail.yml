@@ -24,58 +24,36 @@ jobs:
             autoconf automake libtool gettext pkg-config make binutils \
             libgtk-3-dev libglib2.0-dev libgdk-pixbuf2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
-            glib-networking fuse3 libfuse3-dev libfuse2 xterm
+            glib-networking ca-certificates fuse3 libfuse3-dev libfuse2 xterm
 
       - name: Build and install Nettle with musl
         run: |
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
-          echo "Configuring Nettle..."
           CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
-          echo "Building Nettle core libraries..."
-          make -j$(nproc) libnettle.so libhogweed.so || { echo "Nettle library build failed"; exit 1; }
-          echo "Checking built libraries before proceeding:"
-          ls -l libnettle* libhogweed* || { echo "Libraries not built"; exit 1; }
-          echo "Building remaining Nettle components..."
-          make -j$(nproc) all || { echo "Nettle full build failed"; exit 1; }
-          echo "Installing Nettle..."
+          make -j$(nproc) || { echo "Nettle build failed"; exit 1; }
           sudo make install || { echo "Nettle install failed"; exit 1; }
-          echo "Checking Nettle headers:"
-          ls -l /usr/local/include/nettle/ || echo "Nettle headers not found"
-          echo "Checking Nettle libs (static and shared):"
-          ls -l /usr/local/lib/libnettle* /usr/local/lib/libhogweed* || echo "Nettle libs not found"
-          echo "Checking Nettle pkg-config:"
-          ls -l /usr/local/lib/pkgconfig/nettle.pc || echo "nettle.pc not found"
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          echo "Nettle version:"
-          pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
 
-      - name: Build and install GnuTLS with musl
+      - name: Build and install GnuTLS with glibc
         run: |
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
           [ -f Makefile ] && make distclean || true
-          export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
-          export NETTLE_CFLAGS="-I/usr/local/include"
-          export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
-          CC=musl-gcc ./configure --prefix=/usr/local \
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          ./configure --prefix=/usr/local \
             --with-included-libtasn1 \
             --with-included-unistring \
             --without-p11-kit \
             --disable-guile \
             --disable-doc \
             --disable-brotli \
-            --without-brotli \
-            --with-nettle-mini \
+            --with-default-trust-store-file=/etc/ssl/certs/ca-certificates.crt \
             CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
-          echo "Checking GnuTLS headers:"
-          ls -l /usr/local/include/gnutls/ || echo "GnuTLS headers not found"
-          echo "Checking GnuTLS libs:"
-          ls -l /usr/local/lib/libgnutls* || echo "GnuTLS libs not found"
 
       - name: Upload GnuTLS config.log on failure
         if: failure()
@@ -92,10 +70,6 @@ jobs:
           CC=musl-gcc ./configure --prefix=/usr/local
           make -j$(nproc)
           sudo make install
-          echo "Checking libetpan headers:"
-          ls -l /usr/local/include/libetpan/ || echo "libetpan headers not found"
-          echo "Checking libetpan libs:"
-          ls -l /usr/local/lib/libetpan* || echo "libetpan libs not found"
 
       - name: Clone Claws Mail source
         run: |
@@ -119,7 +93,7 @@ jobs:
           cp src/claws-mail /tmp/claws-mail-unstripped
           make install
 
-      - name: Bundle libraries
+      - name: Bundle libraries and certificates
         run: |
           mkdir -p /tmp/appdir/usr/lib
           for lib in \
@@ -134,6 +108,8 @@ jobs:
             echo "Warning: $lib not found"
           done
           cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/appdir/usr/lib/ 2>/dev/null || true
+          mkdir -p /tmp/appdir/usr/share/ca-certificates
+          cp -r /etc/ssl/certs/ca-certificates.crt /tmp/appdir/usr/share/ca-certificates/
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
 
       - name: Download linuxdeployqt and appimagetool
@@ -150,6 +126,7 @@ jobs:
           export PATH="$HERE/usr/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:$PATH"
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
           export GIO_MODULE_DIR="$HERE/usr/lib"
+          export GNUTLS_DEBUG_LEVEL=9
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create $XDG_RUNTIME_DIR/claws-mail" >> "$LOGFILE"; exit 1; }
           CONFIG_DIR="$HOME/.claws-mail"
@@ -162,7 +139,8 @@ jobs:
             echo "[folder_settings]" > "$CONFIG_DIR/folderitemrc"
           fi
           if [ ! -f "$CONFIG_DIR/accountrc" ]; then
-            echo "[account]" > "$CONFIG_DIR/accountrc"
+            echo "[Account: 1]" > "$CONFIG_DIR/accountrc"
+            echo "use_proxy=0" >> "$CONFIG_DIR/accountrc"
           fi
           LOGFILE="$HOME/claws-mail-appimage-run.log"
           echo "Starting Claws Mail..." >> "$LOGFILE"
