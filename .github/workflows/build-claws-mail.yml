@@ -24,7 +24,8 @@ jobs:
             autoconf automake libtool gettext pkg-config make binutils \
             libgtk-3-dev libglib2.0-dev libgdk-pixbuf2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
-            glib-networking ca-certificates fuse3 libfuse3-dev libfuse2 xterm
+            glib-networking ca-certificates fuse3 libfuse3-dev libfuse2 xterm \
+            hicolor-icon-theme
 
       - name: Build and install Nettle with musl
         run: |
@@ -67,8 +68,10 @@ jobs:
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
           git checkout 1.9.4
-          # Patch imap.c to accept non-standard greetings
-          sed -i 's/MAILIMAP_STATE_ERROR_PARSE/MAILIMAP_STATE_NON_AUTHENTICATED/' src/low-level/imap/mailimap_parser.c
+          # Enhanced patch for Yahoo's greeting
+          sed -i '/if (status == MAILIMAP_NO_ERROR && r == MAILIMAP_ERROR_PARSE) {/a\
+            if (strncmp(line, "* OK Welcome!", 12) == 0) { status = MAILIMAP_NO_ERROR; cur_token = mailimap->imap_response; mailimap->imap_state = MAILIMAP_STATE_NON_AUTHENTICATED; }' \
+            src/low-level/imap/mailimap_parser.c
           ./autogen.sh
           CC=musl-gcc CFLAGS="-g -O0 -DDEBUG" ./configure --prefix=/usr/local --enable-debug
           make -j$(nproc)
@@ -96,7 +99,7 @@ jobs:
           cp src/claws-mail /tmp/claws-mail-unstripped
           make install
 
-      - name: Bundle libraries and certificates
+      - name: Bundle libraries, certificates, and icon theme
         run: |
           mkdir -p /tmp/appdir/usr/lib
           for lib in \
@@ -114,6 +117,8 @@ jobs:
           cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/appdir/usr/lib/ 2>/dev/null || true
           mkdir -p /tmp/appdir/etc/ssl/certs
           cp -r /etc/ssl/certs/*.pem /tmp/appdir/etc/ssl/certs/
+          mkdir -p /tmp/appdir/usr/share/icons/hicolor
+          cp -r /usr/share/icons/hicolor/* /tmp/appdir/usr/share/icons/hicolor/
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
           cp /usr/local/bin/gnutls-cli /tmp/appdir/usr/bin/
 
@@ -132,7 +137,8 @@ jobs:
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
           export GIO_MODULE_DIR="$HERE/usr/lib"
           export GIO_EXTRA_MODULES="$HERE/usr/lib"
-          export GNUTLS_DEBUG_LEVEL=99  # Max verbosity
+          export GNUTLS_DEBUG_LEVEL=99
+          export GNUTLS_LOG_UNBUFFERED=1  # Force unbuffered logs
           export GNUTLS_FORCE_CLIENT_CERT_VERIFY=1
           export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/etc/ssl/certs"
           export SSL_CERT_DIR="$HERE/etc/ssl/certs"
@@ -176,7 +182,7 @@ jobs:
           echo "Checking dependencies..." | tee -a "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" | tee -a "$LOGFILE" 2>&1
           echo "Running Claws Mail with debug..." | tee -a "$LOGFILE"
-          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" 2>&1 | tee -a "$LOGFILE"
+          stdbuf -o0 -e0 "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" 2>&1 | tee -a "$LOGFILE"
           EXIT_CODE=${PIPESTATUS[0]}
           echo "Claws Mail exited with code $EXIT_CODE" | tee -a "$LOGFILE"
           exit $EXIT_CODE
