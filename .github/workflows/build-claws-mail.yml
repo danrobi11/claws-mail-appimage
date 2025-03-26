@@ -38,9 +38,9 @@ jobs:
 
       - name: Build and install GnuTLS with glibc
         run: |
-          wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
-          tar -xJf gnutls-3.7.8.tar.xz
-          cd gnutls-3.7.8
+          wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.5.tar.xz  # Newer version
+          tar -xJf gnutls-3.8.5.tar.xz
+          cd gnutls-3.8.5
           [ -f Makefile ] && make distclean || true
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           ./configure --prefix=/usr/local \
@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gnutls-config-log
-          path: gnutls-3.7.8/config.log
+          path: gnutls-3.8.5/config.log
 
       - name: Build and install libetpan with musl
         run: |
@@ -68,7 +68,7 @@ jobs:
           cd libetpan
           git checkout 1.9.4
           ./autogen.sh
-          CC=musl-gcc CFLAGS="-g -O0 -DDEBUG" ./configure --prefix=/usr/local --enable-debug  # Ensure debug is on
+          CC=musl-gcc CFLAGS="-g -O0 -DDEBUG" ./configure --prefix=/usr/local --enable-debug
           make -j$(nproc)
           sudo make install
 
@@ -103,9 +103,9 @@ jobs:
             libcompface.so.1 libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2 \
             libgio-2.0.so.0 libpango-1.0.so.0 libpangocairo-1.0.so.0 libcairo.so.2 \
             libgdk_pixbuf-2.0.so.0 libnettle.so.8 libhogweed.so.6 libp11-kit.so.0 \
-            libidn2.so.0 libunistring.so.5 libtasn1.so.6 libffi.so.8; do  # Add GnuTLS deps
+            libidn2.so.0 libunistring.so.5 libtasn1.so.6 libffi.so.8; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
-            cp -v /lib/x86_64-linux570-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
+            cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
@@ -136,8 +136,8 @@ jobs:
           export SSL_CERT_DIR="$HERE/etc/ssl/certs"
           export LIBETPAN_DEBUG=1
           export LIBETPAN_LOG_LEVEL=7
-          export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
-          mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create $XDG_RUNTIME_DIR/claws-mail" >> "$LOGFILE"; exit 1; }
+          export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$$"
+          mkdir -p "$XDG_RUNTIME_DIR" || { echo "Failed to create $XDG_RUNTIME_DIR" >> "$LOGFILE"; exit 1; }
           CONFIG_DIR="$HOME/.claws-mail"
           mkdir -p "$CONFIG_DIR"
           if [ ! -f "$CONFIG_DIR/clawsrc" ]; then
@@ -170,7 +170,7 @@ jobs:
           echo "Checking dependencies..." >> "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
           echo "Running Claws Mail with debug..." >> "$LOGFILE"
-          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
+          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" --socket-dir "$XDG_RUNTIME_DIR" >> "$LOGFILE" 2>&1
           EXIT_CODE=$?
           echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
           exit $EXIT_CODE
