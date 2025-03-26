@@ -110,6 +110,9 @@ jobs:
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
+          # Bundle gdk-pixbuf loaders
+          mkdir -p /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders
+          cp -r /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders/* /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/
           cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/appdir/usr/lib/ 2>/dev/null || true
           mkdir -p /tmp/appdir/etc/ssl/certs
           cp -r /etc/ssl/certs/*.pem /tmp/appdir/etc/ssl/certs/
@@ -117,8 +120,10 @@ jobs:
           cp -r /usr/share/icons/hicolor/* /tmp/appdir/usr/share/icons/hicolor/
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
           cp /usr/local/bin/gnutls-cli /tmp/appdir/usr/bin/
+          # Generate loaders.cache
+          /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders > /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
 
-      - name: Download linuxdeployqt and appimagetool
+      - name: Download linuxdeployNATqt and appimagetool
         run: |
           wget -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage -O linuxdeployqt
           wget -c https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
@@ -133,6 +138,8 @@ jobs:
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
           export GIO_MODULE_DIR="$HERE/usr/lib"
           export GIO_EXTRA_MODULES="$HERE/usr/lib"
+          export GDK_PIXBUF_MODULEDIR="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+          export GDK_PIXBUF_MODULE_FILE="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
           export GNUTLS_DEBUG_LEVEL=99
           export GNUTLS_LOG_UNBUFFERED=1
           export GNUTLS_FORCE_CLIENT_CERT_VERIFY=1
@@ -167,6 +174,8 @@ jobs:
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" | tee -a "$LOGFILE"
           echo "GIO_MODULE_DIR: $GIO_MODULE_DIR" | tee -a "$LOGFILE"
           echo "GIO_EXTRA_MODULES: $GIO_EXTRA_MODULES" | tee -a "$LOGFILE"
+          echo "GDK_PIXBUF_MODULEDIR: $GDK_PIXBUF_MODULEDIR" | tee -a "$LOGFILE"
+          echo "GDK_PIXBUF_MODULE_FILE: $GDK_PIXBUF_MODULE_FILE" | tee -a "$LOGFILE"
           echo "GNUTLS_SYSTEM_PRIORITY_FILE: $GNUTLS_SYSTEM_PRIORITY_FILE" | tee -a "$LOGFILE"
           echo "SSL_CERT_DIR: $SSL_CERT_DIR" | tee -a "$LOGFILE"
           echo "LIBETPAN_DEBUG: $LIBETPAN_DEBUG" | tee -a "$LOGFILE"
