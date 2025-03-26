@@ -32,9 +32,9 @@ jobs:
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
-          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
-          make -j$(nproc) || { echo "Nettle build failed"; exit 1; }
-          sudo make install || { echo "Nettle install failed"; exit 1; }
+          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared
+          make -j$(nproc)
+          sudo make install
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 
       - name: Build and install GnuTLS with glibc
@@ -52,26 +52,23 @@ jobs:
             --disable-doc \
             --disable-brotli \
             --with-default-trust-store-file=/etc/ssl/certs/ca-certificates.crt \
-            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
+            CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
           make -j$(nproc)
           sudo make install
-
-      - name: Upload GnuTLS config.log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gnutls-config-log
-          path: gnutls-3.8.5/config.log
 
       - name: Build and install libetpan with musl
         run: |
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
           git checkout 1.9.4
-          # Enhanced patch for Yahoo's greeting
+          # Refined patch for Yahoo's greeting
           sed -i '/if (status == MAILIMAP_NO_ERROR && r == MAILIMAP_ERROR_PARSE) {/a\
-            if (strncmp(line, "* OK Welcome!", 12) == 0) { status = MAILIMAP_NO_ERROR; cur_token = mailimap->imap_response; mailimap->imap_state = MAILIMAP_STATE_NON_AUTHENTICATED; }' \
-            src/low-level/imap/mailimap_parser.c
+            if (strncmp(line, "* OK Welcome!", 12) == 0) { \
+              mailimap->imap_response = line; \
+              mailimap->imap_state = MAILIMAP_STATE_NON_AUTHENTICATED; \
+              status = MAILIMAP_NO_ERROR; \
+              if (getenv("LIBETPAN_DEBUG")) fprintf(stderr, "libetpan: Accepted Yahoo greeting: %s\\n", line); \
+            }' src/low-level/imap/mailimap_parser.c
           ./autogen.sh
           CC=musl-gcc CFLAGS="-g -O0 -DDEBUG" ./configure --prefix=/usr/local --enable-debug
           make -j$(nproc)
@@ -138,12 +135,13 @@ jobs:
           export GIO_MODULE_DIR="$HERE/usr/lib"
           export GIO_EXTRA_MODULES="$HERE/usr/lib"
           export GNUTLS_DEBUG_LEVEL=99
-          export GNUTLS_LOG_UNBUFFERED=1  # Force unbuffered logs
+          export GNUTLS_LOG_UNBUFFERED=1
           export GNUTLS_FORCE_CLIENT_CERT_VERIFY=1
           export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/etc/ssl/certs"
           export SSL_CERT_DIR="$HERE/etc/ssl/certs"
           export LIBETPAN_DEBUG=1
           export LIBETPAN_LOG_LEVEL=7
+          export XDG_DATA_DIRS="$HERE/usr/share:$XDG_DATA_DIRS"
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$$"
           mkdir -p "$XDG_RUNTIME_DIR" || { echo "Failed to create $XDG_RUNTIME_DIR" >> "$LOGFILE"; exit 1; }
           USER_ID=$(id -u)
@@ -164,6 +162,7 @@ jobs:
             echo "use_proxy=0" >> "$CONFIG_DIR/accountrc"
           fi
           LOGFILE="$HOME/claws-mail-appimage-run.log"
+          GNUTLS_LOGFILE="$HOME/claws-mail-gnutls.log"
           echo "Starting Claws Mail..." | tee -a "$LOGFILE"
           echo "PATH: $PATH" | tee -a "$LOGFILE"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" | tee -a "$LOGFILE"
@@ -173,6 +172,7 @@ jobs:
           echo "SSL_CERT_DIR: $SSL_CERT_DIR" | tee -a "$LOGFILE"
           echo "LIBETPAN_DEBUG: $LIBETPAN_DEBUG" | tee -a "$LOGFILE"
           echo "LIBETPAN_LOG_LEVEL: $LIBETPAN_LOG_LEVEL" | tee -a "$LOGFILE"
+          echo "XDG_DATA_DIRS: $XDG_DATA_DIRS" | tee -a "$LOGFILE"
           echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" | tee -a "$LOGFILE"
           echo "CONFIG_DIR: $CONFIG_DIR" | tee -a "$LOGFILE"
           echo "System info:" | tee -a "$LOGFILE"
@@ -182,7 +182,7 @@ jobs:
           echo "Checking dependencies..." | tee -a "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" | tee -a "$LOGFILE" 2>&1
           echo "Running Claws Mail with debug..." | tee -a "$LOGFILE"
-          stdbuf -o0 -e0 "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" 2>&1 | tee -a "$LOGFILE"
+          stdbuf -o0 -e0 "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" 2>>"$GNUTLS_LOGFILE" | tee -a "$LOGFILE"
           EXIT_CODE=${PIPESTATUS[0]}
           echo "Claws Mail exited with code $EXIT_CODE" | tee -a "$LOGFILE"
           exit $EXIT_CODE
@@ -216,9 +216,9 @@ jobs:
         run: |
           ./linuxdeployqt /tmp/appdir/usr/bin/claws-mail -bundle-non-qt-libs -unsupported-allow-new-glibc -verbose=2
 
-      - name: Package AppImage
+      - name: Package AppImage with /dev/urandom access
         run: |
-          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
+          ./appimagetool --no-appstream -v --dev-bind /dev/urandom /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
