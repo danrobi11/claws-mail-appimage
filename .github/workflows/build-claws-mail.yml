@@ -25,13 +25,13 @@ jobs:
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev libfuse2 xterm
 
-      - name: Build and install Nettle with musl
+      - name: Build and install Nettle with musl (full version)
         run: |
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
           echo "Configuring Nettle..."
-          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
+          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
           echo "Building Nettle core libraries..."
           make -j$(nproc) libnettle.so libhogweed.so || { echo "Nettle library build failed"; exit 1; }
           echo "Checking built libraries before proceeding:"
@@ -67,7 +67,6 @@ jobs:
             --disable-doc \
             --disable-brotli \
             --without-brotli \
-            --with-nettle-mini \
             CFLAGS="-I/usr/local/include/nettle" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
