@@ -67,6 +67,8 @@ jobs:
           git clone https://github.com/dinhvh/libetpan.git
           cd libetpan
           git checkout 1.9.4
+          # Patch imap.c to accept non-standard greetings
+          sed -i 's/MAILIMAP_STATE_ERROR_PARSE/MAILIMAP_STATE_NON_AUTHENTICATED/' src/low-level/imap/mailimap_parser.c
           ./autogen.sh
           CC=musl-gcc CFLAGS="-g -O0 -DDEBUG" ./configure --prefix=/usr/local --enable-debug
           make -j$(nproc)
@@ -130,7 +132,7 @@ jobs:
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
           export GIO_MODULE_DIR="$HERE/usr/lib"
           export GIO_EXTRA_MODULES="$HERE/usr/lib"
-          export GNUTLS_DEBUG_LEVEL=9
+          export GNUTLS_DEBUG_LEVEL=99  # Max verbosity
           export GNUTLS_FORCE_CLIENT_CERT_VERIFY=1
           export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/etc/ssl/certs"
           export SSL_CERT_DIR="$HERE/etc/ssl/certs"
@@ -138,7 +140,6 @@ jobs:
           export LIBETPAN_LOG_LEVEL=7
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$$"
           mkdir -p "$XDG_RUNTIME_DIR" || { echo "Failed to create $XDG_RUNTIME_DIR" >> "$LOGFILE"; exit 1; }
-          # Symlink /run/user/$UID to XDG_RUNTIME_DIR if it exists
           USER_ID=$(id -u)
           if [ -d "/run/user/$USER_ID" ]; then
             ln -sf "$XDG_RUNTIME_DIR" "/run/user/$USER_ID/claws-mail" 2>/dev/null || echo "Failed to symlink /run/user/$USER_ID/claws-mail" >> "$LOGFILE"
@@ -157,27 +158,27 @@ jobs:
             echo "use_proxy=0" >> "$CONFIG_DIR/accountrc"
           fi
           LOGFILE="$HOME/claws-mail-appimage-run.log"
-          echo "Starting Claws Mail..." >> "$LOGFILE"
-          echo "PATH: $PATH" >> "$LOGFILE"
-          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" >> "$LOGFILE"
-          echo "GIO_MODULE_DIR: $GIO_MODULE_DIR" >> "$LOGFILE"
-          echo "GIO_EXTRA_MODULES: $GIO_EXTRA_MODULES" >> "$LOGFILE"
-          echo "GNUTLS_SYSTEM_PRIORITY_FILE: $GNUTLS_SYSTEM_PRIORITY_FILE" >> "$LOGFILE"
-          echo "SSL_CERT_DIR: $SSL_CERT_DIR" >> "$LOGFILE"
-          echo "LIBETPAN_DEBUG: $LIBETPAN_DEBUG" >> "$LOGFILE"
-          echo "LIBETPAN_LOG_LEVEL: $LIBETPAN_LOG_LEVEL" >> "$LOGFILE"
-          echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
-          echo "CONFIG_DIR: $CONFIG_DIR" >> "$LOGFILE"
-          echo "System info:" >> "$LOGFILE"
-          uname -a >> "$LOGFILE" 2>&1
-          ldd /lib/ld-musl-x86_64.so.1 >> "$LOGFILE" 2>&1 || echo "musl not found" >> "$LOGFILE"
-          "$HERE/usr/lib/ld-linux-x86-64.so.2" --version >> "$LOGFILE" 2>&1 || echo "glibc version not found" >> "$LOGFILE"
-          echo "Checking dependencies..." >> "$LOGFILE"
-          ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
-          echo "Running Claws Mail with debug..." >> "$LOGFILE"
-          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" >> "$LOGFILE" 2>&1
-          EXIT_CODE=$?
-          echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
+          echo "Starting Claws Mail..." | tee -a "$LOGFILE"
+          echo "PATH: $PATH" | tee -a "$LOGFILE"
+          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" | tee -a "$LOGFILE"
+          echo "GIO_MODULE_DIR: $GIO_MODULE_DIR" | tee -a "$LOGFILE"
+          echo "GIO_EXTRA_MODULES: $GIO_EXTRA_MODULES" | tee -a "$LOGFILE"
+          echo "GNUTLS_SYSTEM_PRIORITY_FILE: $GNUTLS_SYSTEM_PRIORITY_FILE" | tee -a "$LOGFILE"
+          echo "SSL_CERT_DIR: $SSL_CERT_DIR" | tee -a "$LOGFILE"
+          echo "LIBETPAN_DEBUG: $LIBETPAN_DEBUG" | tee -a "$LOGFILE"
+          echo "LIBETPAN_LOG_LEVEL: $LIBETPAN_LOG_LEVEL" | tee -a "$LOGFILE"
+          echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" | tee -a "$LOGFILE"
+          echo "CONFIG_DIR: $CONFIG_DIR" | tee -a "$LOGFILE"
+          echo "System info:" | tee -a "$LOGFILE"
+          uname -a | tee -a "$LOGFILE" 2>&1
+          ldd /lib/ld-musl-x86_64.so.1 | tee -a "$LOGFILE" 2>&1 || echo "musl not found" | tee -a "$LOGFILE"
+          "$HERE/usr/lib/ld-linux-x86-64.so.2" --version | tee -a "$LOGFILE" 2>&1 || echo "glibc version not found" | tee -a "$LOGFILE"
+          echo "Checking dependencies..." | tee -a "$LOGFILE"
+          ldd "$HERE/usr/bin/claws-mail" | tee -a "$LOGFILE" 2>&1
+          echo "Running Claws Mail with debug..." | tee -a "$LOGFILE"
+          "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug --alternate-config-dir "$CONFIG_DIR" 2>&1 | tee -a "$LOGFILE"
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "Claws Mail exited with code $EXIT_CODE" | tee -a "$LOGFILE"
           exit $EXIT_CODE
           EOF
           chmod +x /tmp/appdir/AppRun
