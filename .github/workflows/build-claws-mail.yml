@@ -109,9 +109,10 @@ jobs:
             echo "Warning: $lib not found"
           done
           cp -r /usr/lib/x86_64-linux-gnu/gio/modules/* /tmp/appdir/usr/lib/ 2>/dev/null || true
-          mkdir -p /tmp/appdir/usr/share/ca-certificates
-          cp -r /etc/ssl/certs/ca-certificates.crt /tmp/appdir/usr/share/ca-certificates/
+          mkdir -p /tmp/appdir/etc/ssl/certs
+          cp -r /etc/ssl/certs/*.pem /tmp/appdir/etc/ssl/certs/  # Bundle individual certs
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
+          cp /usr/local/bin/gnutls-cli /tmp/appdir/usr/bin/  # Add gnutls-cli
 
       - name: Download linuxdeployqt and appimagetool
         run: |
@@ -129,9 +130,10 @@ jobs:
           export GIO_MODULE_DIR="$HERE/usr/lib"
           export GIO_EXTRA_MODULES="$HERE/usr/lib"
           export GNUTLS_DEBUG_LEVEL=9
-          export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/usr/share/ca-certificates/ca-certificates.crt"
-          export SSL_CERT_FILE="$HERE/usr/share/ca-certificates/ca-certificates.crt"
-          export LIBETPAN_DEBUG=1  # Enable libetpan debug
+          export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/etc/ssl/certs"  # Directory of certs
+          export SSL_CERT_DIR="$HERE/etc/ssl/certs"  # For GIO TLS
+          export LIBETPAN_DEBUG=1
+          export LIBETPAN_LOG_LEVEL=7  # Max verbosity
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create $XDG_RUNTIME_DIR/claws-mail" >> "$LOGFILE"; exit 1; }
           CONFIG_DIR="$HOME/.claws-mail"
@@ -154,8 +156,9 @@ jobs:
           echo "GIO_MODULE_DIR: $GIO_MODULE_DIR" >> "$LOGFILE"
           echo "GIO_EXTRA_MODULES: $GIO_EXTRA_MODULES" >> "$LOGFILE"
           echo "GNUTLS_SYSTEM_PRIORITY_FILE: $GNUTLS_SYSTEM_PRIORITY_FILE" >> "$LOGFILE"
-          echo "SSL_CERT_FILE: $SSL_CERT_FILE" >> "$LOGFILE"
+          echo "SSL_CERT_DIR: $SSL_CERT_DIR" >> "$LOGFILE"
           echo "LIBETPAN_DEBUG: $LIBETPAN_DEBUG" >> "$LOGFILE"
+          echo "LIBETPAN_LOG_LEVEL: $LIBETPAN_LOG_LEVEL" >> "$LOGFILE"
           echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
           echo "CONFIG_DIR: $CONFIG_DIR" >> "$LOGFILE"
           echo "System info:" >> "$LOGFILE"
