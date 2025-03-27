@@ -16,19 +16,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install build tools and ICU
+      - name: Install build tools
         run: |
           apk update
           apk add --no-cache \
-            bash build-base curl tar \
-            icu-libs icu-dev
-          # Verify ICU libraries are installed
-          ls -l /usr/lib/libicu*.so || { echo "ICU libraries not found"; exit 1; }
+            bash build-base curl tar pkgconf linux-headers
+
+      - name: Install ICU 74 from source
+        run: |
+          wget https://github.com/unicode-org/icu/releases/download/release-74-2/icu4c-74_2-src.tgz -O icu.tar.gz
+          tar -xzf icu.tar.gz
+          cd icu/source
+          ./configure --prefix=/usr --disable-static
+          make -j$(nproc)
+          make install
+          rm -rf ../../icu.tar.gz ../../icu
+          # Verify ICU 74 libraries
+          ls -l /usr/lib/libicu*.so.74 || { echo "ICU 74 libraries not found"; exit 1; }
+          # Set linker path for subsequent steps
+          export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
 
       - name: Install Claws Mail dependencies
         run: |
           apk add --no-cache \
-            git wget pkgconf \
+            git wget \
             musl-dev gtk+3.0-dev fuse \
             libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
             poppler-dev libcanberra-dev libnotify-dev perl-dev \
@@ -36,19 +47,14 @@ jobs:
             db-dev libx11-dev libsm-dev libsoup-dev \
             gumbo-parser-dev libsecret-dev json-glib-dev \
             ghostscript spamassassin appstream-glib \
-            linux-headers glib-dev \
-            webkit2gtk-4.1-dev qt5-qtbase-dev
-          # If webkit2gtk-4.1-dev or qt5-qtbase-dev are unavailable in edge, fetch manually
-          if ! apk info webkit2gtk-4.1-dev >/dev/null 2>&1; then
-            wget -q -O webkit2gtk-4.1-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/webkit2gtk-4.1-dev-2.46.4-r0.apk"
-            apk add --allow-untrusted webkit2gtk-4.1-dev.apk
-            rm webkit2gtk-4.1-dev.apk
-          fi
-          if ! apk info qt5-qtbase-dev >/dev/null 2>&1; then
-            wget -q -O qt5-qtbase-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/qt5-qtbase-dev-5.15.10_git20230714-r3.apk"
-            apk add --allow-untrusted qt5-qtbase-dev.apk
-            rm qt5-qtbase-dev.apk
-          fi
+            glib-dev
+          # Manually install ICU-dependent packages
+          wget -q -O webkit2gtk-4.1-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/webkit2gtk-4.1-dev-2.46.4-r0.apk"
+          wget -q -O qt5-qtbase-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/qt5-qtbase-dev-5.15.10_git20230714-r3.apk"
+          apk add --allow-untrusted --no-deps webkit2gtk-4.1-dev.apk qt5-qtbase-dev.apk
+          rm *.apk
+          # Ensure linker path is set
+          export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
 
       - name: Download Claws Mail source
         run: |
@@ -60,6 +66,7 @@ jobs:
       - name: Configure Claws Mail with all plugins
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
+          export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
           ./configure \
             --prefix=/usr \
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
@@ -71,12 +78,12 @@ jobs:
             --enable-spam-report --enable-address-keeper --enable-acpi-notifier \
             --enable-maildir --enable-newmail --enable-managesieve \
           || { echo "Configuration failed, check config.log"; cat config.log; exit 1; }
-          # Log enabled features
           grep "yes" config.log || echo "No features explicitly enabled"
 
       - name: Build Claws Mail
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
+          export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
           make -j$(nproc) || { echo "Build failed"; exit 1; }
 
       - name: Install Claws Mail to a staging directory
@@ -94,11 +101,14 @@ jobs:
           ldd usr/bin/claws-mail | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
             cp -v "$lib" usr/lib/ || { echo "Warning: $lib not found, may need manual inclusion"; continue; }
           done
-          # Include additional common libraries (e.g., for plugins)
+          # Include ICU 74 and GnuTLS explicitly
+          cp -v /usr/lib/libicu*.so.74* usr/lib/
+          cp -v /usr/lib/libgnutls*.so* usr/lib/
+          # Copy additional common libraries
           for lib in /usr/lib/lib*.so*; do
             cp -v "$lib" usr/lib/ || true
           done
-          # Strip binaries to reduce size (optional)
+          # Strip binaries to reduce size
           strip usr/bin/claws-mail usr/lib/*.so* 2>/dev/null || true
 
       - name: Create tarball with binary and libraries
