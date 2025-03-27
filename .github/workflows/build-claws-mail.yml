@@ -35,6 +35,7 @@ jobs:
           ls -l /usr/lib/libicu*.so.74 || { echo "ICU 74 libraries not found"; exit 1; }
           # Set linker path for subsequent steps
           export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
+          echo "LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: Install Claws Mail dependencies
         run: |
@@ -48,13 +49,16 @@ jobs:
             gumbo-parser-dev libsecret-dev json-glib-dev \
             ghostscript spamassassin appstream-glib \
             glib-dev
-          # Manually install ICU-dependent packages
+          # Manually extract ICU-dependent packages
           wget -q -O webkit2gtk-4.1-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/webkit2gtk-4.1-dev-2.46.4-r0.apk"
           wget -q -O qt5-qtbase-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/qt5-qtbase-dev-5.15.10_git20230714-r3.apk"
-          apk add --allow-untrusted --no-deps webkit2gtk-4.1-dev.apk qt5-qtbase-dev.apk
-          rm *.apk
-          # Ensure linker path is set
-          export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
+          # Extract instead of using apk add
+          mkdir -p /tmp/webkit /tmp/qt5
+          tar -xzf webkit2gtk-4.1-dev.apk -C /tmp/webkit
+          tar -xzf qt5-qtbase-dev.apk -C /tmp/qt5
+          cp -r /tmp/webkit/usr/* /usr/
+          cp -r /tmp/qt5/usr/* /usr/
+          rm -rf *.apk /tmp/webkit /tmp/qt5
 
       - name: Download Claws Mail source
         run: |
@@ -66,7 +70,6 @@ jobs:
       - name: Configure Claws Mail with all plugins
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
-          export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
           ./configure \
             --prefix=/usr \
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
@@ -83,7 +86,6 @@ jobs:
       - name: Build Claws Mail
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
-          export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
           make -j$(nproc) || { echo "Build failed"; exit 1; }
 
       - name: Install Claws Mail to a staging directory
