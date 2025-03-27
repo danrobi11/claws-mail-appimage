@@ -1,103 +1,169 @@
 name: Build Claws Mail AppImage
 
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+
     steps:
+      # Checkout the repository (if you store this script or related files there)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      # Set up environment and install dependencies
+      - name: Install build tools and dependencies
         run: |
-          sudo apt update
-          sudo apt install -y --no-install-recommends \
-            build-essential git wget curl autoconf automake libtool pkg-config \
-            libglib2.0-dev libgtk-3-dev libnotify-dev libstartup-notification0-dev \
-            libcompfaceg1-dev fuse3 libfuse3-dev xterm appstream musl-tools
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential git curl wget pkg-config libgtk-3-dev libfuse2 \
+            libetpan-dev libgnutls28-dev libgpgme-dev libenchant-2-dev \
+            libpoppler-glib-dev libcanberra-dev libnotify-dev libperl-dev \
+            python3-dev libytnef0-dev libical-dev libarchive-dev libldap2-dev \
+            libcompfaceg1-dev libdb-dev libstartup-notification0-dev libx11-dev \
+            libsm-dev libsoup2.4-dev libgumbo-dev libsecret-1-dev libjson-glib-dev \
+            ghostscript spamassassin appstream || echo "Some optional deps failed."
+          # Try WebKitGTK 4.0 or 4.1
+          sudo apt-get install -y libwebkit2gtk-4.0-dev || \
+          sudo apt-get install -y libwebkit2gtk-4.1-dev || \
+          echo "WebKitGTK skipped; Fancy plugin may not work."
 
-      - name: Build Nettle
+      # Set up working directory
+      - name: Set up working directory
         run: |
-          wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
-          tar xf nettle-3.7.3.tar.gz
-          cd nettle-3.7.3
-          CC=musl-gcc ./configure --prefix=/usr/local --enable-mini-gmp --enable-shared
-          make -j$(nproc)
-          sudo make install
+          mkdir -p ~/claws-mail-appimage-build
+          mkdir -p ~/claws-mail-appimage-build/install
+          mkdir -p ~/claws-mail-appimage-build/ClawsMail.AppDir
+          cd ~/claws-mail-appimage-build
 
-      - name: Build GnuTLS
+      # Download and extract Claws Mail source
+      - name: Download Claws Mail source
         run: |
-          wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
-          tar xf gnutls-3.7.8.tar.xz
-          cd gnutls-3.7.8
-          export NETTLE_CFLAGS="-I/usr/local/include"
-          export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
-          CC=musl-gcc ./configure --prefix=/usr/local --with-included-libtasn1 --with-included-unistring --with-nettle-mini --without-p11-kit --disable-doc
-          make -j$(nproc)
-          sudo make install
+          wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
+          tar -xf claws-mail-4.3.0.tar.xz
+          cd claws-mail-4.3.0
 
-      - name: Build libetpan
+      # Configure Claws Mail with all plugins
+      - name: Configure Claws Mail
         run: |
-          git clone https://github.com/dinhvh/libetpan.git
-          cd libetpan
-          ./autogen.sh
-          CC=musl-gcc ./configure --prefix=/usr/local
-          make -j$(nproc)
-          sudo make install
+          ./configure \
+            --prefix="$HOME/claws-mail-appimage-build/install" \
+            --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
+            --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
+            --enable-canberra --enable-notify --enable-perl --enable-python \
+            --enable-tnef --enable-vcalendar --enable-ldap --enable-compface \
+            --enable-dillo --enable-fancy --enable-rssyl --enable-spamassassin \
+            --enable-bogofilter --enable-notification --enable-pdf-viewer \
+            --enable-spam-report --enable-address-keeper --enable-acpi-notifier \
+            --enable-maildir --enable-newmail --enable-managesieve || \
+            echo "Some plugins may be disabled."
 
-      - name: Download and build Claws Mail
+      # Build and install Claws Mail
+      - name: Build and install Claws Mail
         run: |
-          wget https://www.claws-mail.org/releases/claws-mail-4.2.0.tar.xz
-          tar xf claws-mail-4.2.0.tar.xz
-          cd claws-mail-4.2.0
-          ./configure --prefix=/tmp/appdir/usr
           make -j$(nproc)
           make install
 
-      - name: Prepare AppDir
+      # Set up AppImage directory structure
+      - name: Prepare AppImage structure
         run: |
-          mkdir -p /tmp/appdir/usr/lib /tmp/appdir/usr/bin
-          cp /tmp/appdir/usr/bin/claws-mail /tmp/appdir/usr/bin/claws-mail
-          chmod +x /tmp/appdir/usr/bin/claws-mail
-          for lib in libgtk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 libnotify.so.4 \
-                     libetpan.so.20 libgnutls.so.30 libcompface.so.1 \
-                     libstartup-notification-1.so.0 ld-linux-x86-64.so.2 libc.so.6; do
-            path=$(ldconfig -p | grep $lib | head -n1 | awk '{print $4}')
-            [ -f "$path" ] && cp -v "$path" /tmp/appdir/usr/lib/ || echo "$lib not found"
-          done
+          cd ~/claws-mail-appimage-build/ClawsMail.AppDir
+          mkdir -p usr/bin usr/lib usr/share/applications usr/share/icons/hicolor/48x48/apps usr/share/perl
+          cp ~/claws-mail-appimage-build/install/bin/claws-mail usr/bin/
+          if [ -f "~/claws-mail-appimage-build/install/share/applications/claws-mail.desktop" ]; then
+            cp ~/claws-mail-appimage-build/install/share/applications/claws-mail.desktop .
+            sed -i 's/Exec=claws-mail %u/Exec=AppRun/' claws-mail.desktop
+            cp claws-mail.desktop usr/share/applications/
+          else
+            echo "[Desktop Entry]" > claws-mail.desktop
+            echo "Name=Claws Mail" >> claws-mail.desktop
+            echo "Exec=AppRun" >> claws-mail.desktop
+            echo "Type=Application" >> claws-mail.desktop
+            echo "Icon=claws-mail" >> claws-mail.desktop
+            echo "Categories=Network;Email;" >> claws-mail.desktop
+            echo "Terminal=false" >> claws-mail.desktop
+            cp claws-mail.desktop usr/share/applications/
+          fi
+          chmod 644 claws-mail.desktop usr/share/applications/claws-mail.desktop
+          if [ -f "~/claws-mail-appimage-build/install/share/icons/hicolor/48x48/apps/claws-mail.png" ]; then
+            cp ~/claws-mail-appimage-build/install/share/icons/hicolor/48x48/apps/claws-mail.png claws-mail.png
+            cp ~/claws-mail-appimage-build/install/share/icons/hicolor/48x48/apps/claws-mail.png usr/share/icons/hicolor/48x48/apps/
+          else
+            wget -O claws-mail.png "https://www.claws-mail.org/images/claws-mail_icon_48.png"
+            cp claws-mail.png usr/share/icons/hicolor/48x48/apps/
+          fi
+          chmod 644 claws-mail.png usr/share/icons/hicolor/48x48/apps/claws-mail.png
 
-      - name: Create AppRun and Desktop file
+      # Create AppRun with debug logging
+      - name: Create AppRun with debug logging
         run: |
-          echo '#!/bin/bash
-          HERE="$(dirname "$(readlink -f "$0")")"
-          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
-          export GNUTLS_DEBUG_LEVEL=9
-          exec "$HERE/usr/bin/claws-mail" "$@"' > /tmp/appdir/AppRun
-          chmod +x /tmp/appdir/AppRun
+          cd ~/claws-mail-appimage-build/ClawsMail.AppDir
+          cat <<EOF > AppRun
+          #!/bin/bash
+          HERE="\$(dirname "\$(readlink -f "\${0}")")"
+          LOG_FILE="\$HOME/.claws-mail-appimage.log"
+          echo "[$(date)] AppImage started" > "\$LOG_FILE"
+          echo "Environment: \$PATH" >> "\$LOG_FILE"
+          echo "LD_LIBRARY_PATH: \$LD_LIBRARY_PATH" >> "\$LOG_FILE"
+          echo "Running claws-mail from: \$HERE/usr/bin/claws-mail" >> "\$LOG_FILE"
+          "\$HERE/usr/bin/claws-mail" "\$@" 2>> "\$LOG_FILE"
+          EXIT_CODE=\$?
+          echo "[$(date)] AppImage exited with code \$EXIT_CODE" >> "\$LOG_FILE"
+          exit \$EXIT_CODE
+          EOF
+          chmod +x AppRun
 
-          echo '[Desktop Entry]
-          Name=Claws Mail
-          Exec=claws-mail
-          Type=Application
-          Icon=claws-mail
-          Categories=Network;Email;' > /tmp/appdir/claws-mail.desktop
-
-      - name: Add Icon
+      # Bundle external tools
+      - name: Bundle external tools
         run: |
-          mkdir -p /tmp/appdir/usr/share/icons/hicolor/48x48/apps
-          wget -O /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png https://www.claws-mail.org/images/claws-mail_icon_48.png
+          cd ~/claws-mail-appimage-build/ClawsMail.AppDir
+          cp /usr/bin/gs usr/bin/
+          cp /usr/bin/spamassassin usr/bin/
+          cp /usr/bin/perl usr/bin/
+          if [ -d "/usr/lib/x86_64-linux-gnu/perl" ]; then
+            cp -r /usr/lib/x86_64-linux-gnu/perl usr/lib/
+          elif [ -d "/usr/lib/x86_64-linux-gnu/perl5" ]; then
+            cp -r /usr/lib/x86_64-linux-gnu/perl5 usr/lib/
+          else
+            echo "Warning: Perl libraries not found; SpamAssassin may not work."
+          fi
+          if [ -d "/usr/share/perl" ]; then
+            cp -r /usr/share/perl/* usr/share/perl/
+          fi
 
-      - name: Download linuxdeploy and build AppImage
+      # Download linuxdeploy and appimagetool
+      - name: Download build tools
         run: |
-          wget -O linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy
-          ./linuxdeploy --appdir /tmp/appdir -d /tmp/appdir/claws-mail.desktop -i /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png --output appimage
+          cd ~/claws-mail-appimage-build
+          wget "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" -O linuxdeploy.AppImage
+          wget "https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage" -O appimagetool.AppImage
+          chmod +x linuxdeploy.AppImage appimagetool.AppImage
 
-      - name: Upload Claws Mail AppImage
+      # Bundle dependencies and create AppImage
+      - name: Bundle dependencies and create AppImage
+        run: |
+          cd ~/claws-mail-appimage-build
+          ./linuxdeploy.AppImage --appdir ClawsMail.AppDir \
+            --executable=ClawsMail.AppDir/usr/bin/claws-mail \
+            --executable=ClawsMail.AppDir/usr/bin/gs \
+            --executable=ClawsMail.AppDir/usr/bin/perl \
+            --desktop-file=ClawsMail.AppDir/claws-mail.desktop \
+            --icon-file=ClawsMail.AppDir/claws-mail.png
+          ./appimagetool.AppImage ClawsMail.AppDir claws-mail-4.3.0.AppImage
+
+      # Upload AppImage as artifact
+      - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: claws-mail-4.2.0-appimage
-          path: ./*.AppImage
+          name: claws-mail-appimage
+          path: ~/claws-mail-appimage-build/claws-mail-4.3.0.AppImage
+
+      # Display SHA256 checksum
+      - name: Display SHA256 checksum
+        run: |
+          sha256sum ~/claws-mail-appimage-build/claws-mail-4.3.0.AppImage
