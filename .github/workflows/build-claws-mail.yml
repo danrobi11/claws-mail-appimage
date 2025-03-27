@@ -24,7 +24,7 @@ jobs:
             libgmp-dev \
             libgtk-3-dev libglib2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
-            fuse3 libfuse3-dev libfuse2 xterm
+            fuse3 libfuse3-dev libfuse2 xterm gdk-pixbuf-tools
 
       - name: Build and install Nettle with glibc
         run: |
@@ -123,12 +123,21 @@ jobs:
             libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
             libetpan.so.20 libgnutls.so.30 libnettle.so.8 libhogweed.so.6 \
             libnotify.so.4 libstartup-notification-1.so.0 libcompface.so.1 \
-            libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2; do
+            libc.so.6 libgpg-error.so.0 ld-linux-x86_64.so.2 \
+            libgdk_pixbuf-2.0.so.0 libpango-1.0.so.0 libpangocairo-1.0.so.0 \
+            libcairo.so.2 libpangoft2-1.0.so.0 libfontconfig.so.1 libfreetype.so.6; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
+          # Bundle GdkPixbuf loaders
+          mkdir -p /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders
+          cp -v /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders/*.so /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders/ || echo "Warning: GdkPixbuf loaders not found"
+          # Generate and bundle loaders.cache
+          gdk-pixbuf-query-loaders --update-cache
+          mkdir -p /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0
+          cp -v /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders.cache /tmp/appdir/usr/lib/gdk-pixbuf-2.0/2.10.0/ || echo "Warning: loaders.cache not found"
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
 
       - name: Bundle CA certificates
@@ -153,6 +162,8 @@ jobs:
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           export GNUTLS_SYSTEM_PRIORITY_FILE="$HERE/usr/share/ca-certificates/ca-certificates.crt"
+          export GDK_PIXBUF_MODULEDIR="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+          export GDK_PIXBUF_MODULE_FILE="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
           mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create $XDG_RUNTIME_DIR/claws-mail" >> "$LOGFILE"; exit 1; }
           CONFIG_DIR="$HOME/.claws-mail"
           mkdir -p "$CONFIG_DIR"
@@ -173,13 +184,15 @@ jobs:
           echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
           echo "CONFIG_DIR: $CONFIG_DIR" >> "$LOGFILE"
           echo "GNUTLS_SYSTEM_PRIORITY_FILE: $GNUTLS_SYSTEM_PRIORITY_FILE" >> "$LOGFILE"
+          echo "GDK_PIXBUF_MODULEDIR: $GDK_PIXBUF_MODULEDIR" >> "$LOGFILE"
+          echo "GDK_PIXBUF_MODULE_FILE: $GDK_PIXBUF_MODULE_FILE" >> "$LOGFILE"
           echo "System info:" >> "$LOGFILE"
           uname -a >> "$LOGFILE" 2>&1
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
           echo "GnuTLS version:" >> "$LOGFILE"
           "$HERE/usr/bin/claws-mail" --version >> "$LOGFILE" 2>&1
           echo "Testing TLS with GnuTLS:" >> "$LOGFILE"
-          echo -e "QUIT" | "$HERE/usr/lib/libgnutls.so.30" --version >> "$LOGFILE" 2>&1 || echo "GnuTLS test failed" >> "$LOGFILE"
+          echo -e "QUIT" | "$HERE/usr/bin/gnutls-cli" --version >> "$LOGFILE" 2>&1 || echo "GnuTLS test failed" >> "$LOGFILE"
           echo "Running Claws Mail with debug..." >> "$LOGFILE"
           "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
           EXIT_CODE=$?
