@@ -24,7 +24,7 @@ jobs:
             libgmp-dev \
             libgtk-3-dev libglib2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
-            fuse3 libfuse3-dev libfuse2 xterm gdk-pixbuf-tools
+            fuse3 libfuse3-dev libfuse2 xterm gdk-pixbuf-xlib-tools
 
       - name: Build and install Nettle with glibc
         run: |
