@@ -27,8 +27,16 @@ jobs:
             python3-dev libical-dev libarchive-dev openldap-dev \
             db-dev libx11-dev libsm-dev libsoup-dev \
             gumbo-parser-dev libsecret-dev json-glib-dev \
-            ghostscript spamassassin appstream-glib \
-            linux-headers glib-dev
+            ghostscript spamassassin appstream-glib webkit2gtk-4.1-dev \
+            linux-headers glib-dev qt5-qtbase-dev
+
+      - name: Install ICU 74 manually
+        run: |
+          wget https://github.com/unicode-org/icu/releases/download/release-74-2/icu4c-74_2-Alpine-Linux.tgz -O icu.tar.gz
+          tar -xzf icu.tar.gz -C /usr
+          rm icu.tar.gz
+          # Verify ICU 74 libraries are installed
+          ls -l /usr/lib/libicu*.so.74 || exit 1
 
       - name: Download Claws Mail source
         run: |
@@ -37,7 +45,7 @@ jobs:
           wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
           tar -xf claws-mail-4.3.0.tar.xz
 
-      - name: Configure Claws Mail
+      - name: Configure Claws Mail with all plugins
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
           ./configure \
@@ -46,7 +54,7 @@ jobs:
             --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
             --enable-canberra --enable-notify --enable-perl --enable-python \
             --enable-vcalendar --enable-ldap \
-            --enable-dillo --disable-fancy --enable-rssyl --enable-spamassassin \
+            --enable-dillo --enable-fancy --enable-rssyl --enable-spamassassin \
             --enable-bogofilter --enable-notification --enable-pdf-viewer \
             --enable-spam-report --enable-address-keeper --enable-acpi-notifier \
             --enable-maildir --enable-newmail --enable-managesieve || \
@@ -72,6 +80,9 @@ jobs:
           ldd usr/bin/claws-mail | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
             cp -v "$lib" usr/lib/ || echo "Warning: $lib not found, may need manual inclusion"
           done
+          # Include ICU 74 and GnuTLS explicitly
+          cp -v /usr/lib/libicu*.so.74* usr/lib/
+          cp -v /usr/lib/libgnutls*.so* usr/lib/
           # Copy additional common libraries
           for lib in /usr/lib/lib*.so*; do
             cp -v "$lib" usr/lib/ || true
