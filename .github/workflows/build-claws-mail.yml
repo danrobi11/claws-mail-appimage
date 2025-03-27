@@ -52,7 +52,7 @@ jobs:
           echo "Nettle version:"
           pkg-config --modversion nettle || echo "pkg-config cannot find Nettle"
 
-      - name: Build and install GnuTLS with musl
+      - name: Build and install GnuTLS with glibc
         run: |
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
@@ -61,7 +61,7 @@ jobs:
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           export NETTLE_CFLAGS="-I/usr/local/include/nettle"
           export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
-          CC=musl-gcc ./configure --prefix=/usr/local \
+          CC=gcc ./configure --prefix=/usr/local \
             --with-included-libtasn1 \
             --with-included-unistring \
             --without-p11-kit \
@@ -69,7 +69,7 @@ jobs:
             --disable-doc \
             --disable-brotli \
             --without-brotli \
-            CFLAGS="-I/usr/local/include/nettle -I/usr/include" LDFLAGS="-L/usr/local/lib -L/usr/lib/x86_64-linux-gnu" || { cat config.log; exit 1; }
+            CFLAGS="-I/usr/local/include/nettle" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
           echo "Checking GnuTLS headers:"
