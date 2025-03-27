@@ -19,10 +19,15 @@ jobs:
           sudo apt update
           sudo add-apt-repository universe
           sudo apt update
-          sudo apt install -y --no-install-recommends build-essential git wget musl-tools musl-dev \
+          sudo apt install -y --no-install-recommends \
+            build-essential git wget musl-tools musl-dev \
             autoconf automake libtool gettext pkg-config make binutils \
-            libgtk-3-dev libglib2.0-dev \
-            libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
+            libgtk-3-dev libglib2.0-dev libnotify-dev \
+            libstartup-notification0-dev libcompfaceg1-dev \
+            libgtkhtml-3.14-dev libdb5.3-dev libdbus-glib-1-dev \
+            libenchant-dev libgcrypt20-dev libgpg-error-dev \
+            libetpan-dev libical-dev libarchive-dev libaspell-dev \
+            libldap2-dev libsasl2-dev libsecret-1-dev \
             fuse3 libfuse3-dev libfuse2 xterm
 
       - name: Build and install Nettle with musl
@@ -39,18 +44,14 @@ jobs:
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
+          export GNUTLS_DEBUG_LEVEL=9
           export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
           export NETTLE_CFLAGS="-I/usr/local/include"
           export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
           CC=musl-gcc ./configure --prefix=/usr/local \
-            --with-included-libtasn1 \
-            --with-included-unistring \
-            --without-p11-kit \
-            --disable-guile \
-            --disable-doc \
-            --disable-brotli \
-            --without-brotli \
-            --with-nettle-mini \
+            --with-included-libtasn1 --with-included-unistring \
+            --without-p11-kit --disable-guile --disable-doc \
+            --disable-brotli --without-brotli --with-nettle-mini \
             CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib"
           make -j$(nproc)
           sudo make install
@@ -62,16 +63,7 @@ jobs:
           name: gnutls-config-log
           path: gnutls-3.7.8/config.log
 
-      - name: Build and install libetpan with musl
-        run: |
-          git clone https://github.com/dinhvh/libetpan.git
-          cd libetpan
-          ./autogen.sh
-          CC=musl-gcc ./configure --prefix=/usr/local
-          make -j$(nproc)
-          sudo make install
-
-      - name: Download and extract Claws Mail 4.2.0 source
+      - name: Download and extract Claws Mail 4.2.0
         run: |
           wget https://www.claws-mail.org/releases/claws-mail-4.2.0.tar.xz
           tar -xf claws-mail-4.2.0.tar.xz
@@ -81,6 +73,7 @@ jobs:
           cd claws-mail-4.2.0
           ./configure --prefix=/tmp/appdir/usr --disable-manual
           make -j$(nproc) CFLAGS="-g -O0"
+          cp src/claws-mail /tmp/claws-mail-unstripped
           make install
 
       - name: Bundle libraries
@@ -88,13 +81,15 @@ jobs:
           mkdir -p /tmp/appdir/usr/lib
           for lib in \
             libgtk-3.so.0 libgdk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 \
-            libetpan.so.20 libgnutls.so.30 libnotify.so.4 libstartup-notification-1.so.0 \
-            libcompface.so.1 libc.so.6 libgpg-error.so.0 ld-linux-x86-64.so.2; do
+            libetpan.so.20 libgnutls.so.30 libnotify.so.4 \
+            libstartup-notification-1.so.0 libcompface.so.1 libc.so.6 \
+            libgpg-error.so.0 ld-linux-x86-64.so.2; do
             cp -v /usr/lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /lib/x86_64-linux-gnu/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
+          cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
 
       - name: Download linuxdeployqt and appimagetool
         run: |
@@ -106,27 +101,26 @@ jobs:
         run: |
           cat << 'EOF' > /tmp/appdir/AppRun
           #!/bin/bash
-          HERE="$(dirname "$(readlink -f "$0")")"
+          HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="$HERE/usr/bin:$PATH"
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
-          mkdir -p "$XDG_RUNTIME_DIR/claws-mail"
-          LOGFILE="$HOME/claws-mail-appimage-run.log"
           export GNUTLS_DEBUG_LEVEL=9
+          mkdir -p "$XDG_RUNTIME_DIR/claws-mail"
+          CONFIG_DIR="$HOME/.claws-mail"
+          mkdir -p "$CONFIG_DIR"
+          LOGFILE="$HOME/claws-mail-appimage-run.log"
           echo "Starting Claws Mail..." >> "$LOGFILE"
-          echo "PATH: $PATH" >> "$LOGFILE"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" >> "$LOGFILE"
-          echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
-          echo "CONFIG_DIR: $CONFIG_DIR" >> "$LOGFILE"
-          uname -a >> "$LOGFILE" 2>&1
-          ldd /lib/ld-musl-x86_64.so.1 >> "$LOGFILE" 2>&1 || echo "musl not found" >> "$LOGFILE"
-          /lib64/ld-linux-x86-64.so.2 --version >> "$LOGFILE" 2>&1 || echo "glibc version not found" >> "$LOGFILE"
-          ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
+          echo "GNUTLS_DEBUG_LEVEL: $GNUTLS_DEBUG_LEVEL" >> "$LOGFILE"
           "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
+          EXIT_CODE=$?
+          echo "Exited with code $EXIT_CODE" >> "$LOGFILE"
+          exit $EXIT_CODE
           EOF
           chmod +x /tmp/appdir/AppRun
 
-      - name: Create desktop file
+      - name: Create desktop file and copy icon
         run: |
           cat << 'EOF' > /tmp/appdir/claws-mail.desktop
           [Desktop Entry]
@@ -137,12 +131,10 @@ jobs:
           Categories=Network;Email;
           Terminal=false
           EOF
-
-      - name: Copy icon
-        run: |
           mkdir -p /tmp/appdir/usr/share/icons/hicolor/48x48/apps
-          wget -O /tmp/appdir/claws-mail.png "https://www.claws-mail.org/images/claws-mail_icon_48.png"
+          wget -O /tmp/appdir/claws-mail.png https://www.claws-mail.org/images/claws-mail_icon_48.png
           cp /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png
+          chmod 644 /tmp/appdir/claws-mail.png
 
       - name: Bundle with linuxdeployqt
         run: |
