@@ -23,8 +23,7 @@ jobs:
             autoconf automake libtool gettext pkg-config make binutils \
             libgtk-3-dev libglib2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
-            libical-dev libdbus-1-dev \
-            fuse3 libfuse3-dev libfuse2 xterm
+            fuse3 libfuse3-dev libfuse2 xterm ca-certificates
 
       - name: Build and install Nettle with musl
         run: |
@@ -32,8 +31,7 @@ jobs:
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
           CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-mini-gmp --enable-static --enable-shared
-          make -j$(nproc) libnettle.so libhogweed.so
-          make -j$(nproc) all
+          make -j$(nproc)
           sudo make install
 
       - name: Build and install GnuTLS with musl
@@ -45,7 +43,6 @@ jobs:
           export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
           export NETTLE_CFLAGS="-I/usr/local/include"
           export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
-          export GNUTLS_DEBUG_LEVEL=9
           CC=musl-gcc ./configure --prefix=/usr/local \
             --with-included-libtasn1 \
             --with-included-unistring \
@@ -84,7 +81,6 @@ jobs:
       - name: Build Claws Mail with debug symbols and GTK3
         run: |
           cd claws-mail
-          ./autogen.sh
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           CC=gcc CFLAGS="-I/usr/local/include -g -O0" LDFLAGS="-L/usr/local/lib" \
             ./configure --prefix=/tmp/appdir/usr --disable-manual
@@ -104,6 +100,7 @@ jobs:
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
+          cp /etc/ssl/certs/ca-certificates.crt /tmp/appdir/usr/lib/
           cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
 
       - name: Download linuxdeployqt and appimagetool
@@ -119,17 +116,21 @@ jobs:
           HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="$HERE/usr/bin:$PATH"
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+          export SSL_CERT_FILE="$HERE/usr/lib/ca-certificates.crt"
+          export GNUTLS_PRIORITY="NORMAL:+VERS-TLS1.2"
+          export GNUTLS_DEBUG_LEVEL=9
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           mkdir -p "$XDG_RUNTIME_DIR/claws-mail"
           CONFIG_DIR="$HOME/.claws-mail"
           mkdir -p "$CONFIG_DIR"
-          [ ! -f "$CONFIG_DIR/clawsrc" ] && echo -e "[claws-mail]\nversion=4" > "$CONFIG_DIR/clawsrc"
-          [ ! -f "$CONFIG_DIR/folderitemrc" ] && echo "[folder_settings]" > "$CONFIG_DIR/folderitemrc"
-          [ ! -f "$CONFIG_DIR/accountrc" ] && echo "[account]" > "$CONFIG_DIR/accountrc"
+          for file in clawsrc folderitemrc accountrc; do
+            [ -f "$CONFIG_DIR/$file" ] || echo "[$file]" > "$CONFIG_DIR/$file"
+          done
           LOGFILE="$HOME/claws-mail-appimage-run.log"
-          export GNUTLS_DEBUG_LEVEL=9
           echo "Starting Claws Mail..." >> "$LOGFILE"
+          echo "GNUTLS debug enabled. Priority: $GNUTLS_PRIORITY" >> "$LOGFILE"
           "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
+          echo "Exit code: $?" >> "$LOGFILE"
           EOF
           chmod +x /tmp/appdir/AppRun
 
