@@ -32,7 +32,8 @@ jobs:
           tar -xzf nettle-3.7.3.tar.gz
           cd nettle-3.7.3
           echo "Configuring Nettle..."
-          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers" ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
+          CC=musl-gcc CFLAGS="-Wno-discarded-qualifiers -I/usr/include" LDFLAGS="-L/usr/lib/x86_64-linux-gnu" \
+            ./configure --prefix=/usr/local --libdir=/usr/local/lib --enable-static --enable-shared || { echo "Nettle configure failed"; exit 1; }
           echo "Building Nettle core libraries..."
           make -j$(nproc) libnettle.so libhogweed.so || { echo "Nettle library build failed"; exit 1; }
           echo "Checking built libraries before proceeding:"
@@ -68,7 +69,7 @@ jobs:
             --disable-doc \
             --disable-brotli \
             --without-brotli \
-            CFLAGS="-I/usr/local/include/nettle" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
+            CFLAGS="-I/usr/local/include/nettle -I/usr/include" LDFLAGS="-L/usr/local/lib -L/usr/lib/x86_64-linux-gnu" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
           echo "Checking GnuTLS headers:"
