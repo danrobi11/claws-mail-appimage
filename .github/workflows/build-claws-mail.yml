@@ -23,7 +23,7 @@ jobs:
             autoconf automake libtool gettext pkg-config make binutils \
             libgtk-3-dev libglib2.0-dev \
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
-            fuse3 libfuse3-dev libfuse2 xterm ca-certificates
+            fuse3 libfuse3-dev libfuse2 xterm
 
       - name: Build and install Nettle with musl
         run: |
@@ -39,7 +39,6 @@ jobs:
           wget https://www.gnupg.org/ftp/gcrypt/gnutls/v3.7/gnutls-3.7.8.tar.xz
           tar -xJf gnutls-3.7.8.tar.xz
           cd gnutls-3.7.8
-          [ -f Makefile ] && make distclean || true
           export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig"
           export NETTLE_CFLAGS="-I/usr/local/include"
           export NETTLE_LIBS="-L/usr/local/lib -lnettle -lhogweed"
@@ -72,20 +71,16 @@ jobs:
           make -j$(nproc)
           sudo make install
 
-      - name: Clone Claws Mail source
+      - name: Download and extract Claws Mail 4.2.0 source
         run: |
-          git clone https://git.claws-mail.org/readonly/claws.git claws-mail
-          cd claws-mail
-          git checkout claws-4.3.0 || echo "Tag claws-4.3.0 not found; using latest commit"
+          wget https://www.claws-mail.org/releases/claws-mail-4.2.0.tar.xz
+          tar -xf claws-mail-4.2.0.tar.xz
 
       - name: Build Claws Mail with debug symbols and GTK3
         run: |
-          cd claws-mail
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          CC=gcc CFLAGS="-I/usr/local/include -g -O0" LDFLAGS="-L/usr/local/lib" \
-            ./configure --prefix=/tmp/appdir/usr --disable-manual
-          make -j$(nproc) CFLAGS="-I/usr/local/include -g -O0"
-          cp src/claws-mail /tmp/claws-mail-unstripped
+          cd claws-mail-4.2.0
+          ./configure --prefix=/tmp/appdir/usr --disable-manual
+          make -j$(nproc) CFLAGS="-g -O0"
           make install
 
       - name: Bundle libraries
@@ -100,8 +95,6 @@ jobs:
             cp -v /usr/local/lib/$lib /tmp/appdir/usr/lib/ 2>/dev/null || \
             echo "Warning: $lib not found"
           done
-          cp /etc/ssl/certs/ca-certificates.crt /tmp/appdir/usr/lib/
-          cp /tmp/claws-mail-unstripped /tmp/appdir/usr/bin/claws-mail
 
       - name: Download linuxdeployqt and appimagetool
         run: |
@@ -113,24 +106,23 @@ jobs:
         run: |
           cat << 'EOF' > /tmp/appdir/AppRun
           #!/bin/bash
-          HERE="$(dirname "$(readlink -f "${0}")")"
+          HERE="$(dirname "$(readlink -f "$0")")"
           export PATH="$HERE/usr/bin:$PATH"
           export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
-          export SSL_CERT_FILE="$HERE/usr/lib/ca-certificates.crt"
-          export GNUTLS_PRIORITY="NORMAL:+VERS-TLS1.2"
-          export GNUTLS_DEBUG_LEVEL=9
           export XDG_RUNTIME_DIR="/tmp/claws-mail-$USER-$RANDOM"
           mkdir -p "$XDG_RUNTIME_DIR/claws-mail"
-          CONFIG_DIR="$HOME/.claws-mail"
-          mkdir -p "$CONFIG_DIR"
-          for file in clawsrc folderitemrc accountrc; do
-            [ -f "$CONFIG_DIR/$file" ] || echo "[$file]" > "$CONFIG_DIR/$file"
-          done
           LOGFILE="$HOME/claws-mail-appimage-run.log"
+          export GNUTLS_DEBUG_LEVEL=9
           echo "Starting Claws Mail..." >> "$LOGFILE"
-          echo "GNUTLS debug enabled. Priority: $GNUTLS_PRIORITY" >> "$LOGFILE"
+          echo "PATH: $PATH" >> "$LOGFILE"
+          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH" >> "$LOGFILE"
+          echo "XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR" >> "$LOGFILE"
+          echo "CONFIG_DIR: $CONFIG_DIR" >> "$LOGFILE"
+          uname -a >> "$LOGFILE" 2>&1
+          ldd /lib/ld-musl-x86_64.so.1 >> "$LOGFILE" 2>&1 || echo "musl not found" >> "$LOGFILE"
+          /lib64/ld-linux-x86-64.so.2 --version >> "$LOGFILE" 2>&1 || echo "glibc version not found" >> "$LOGFILE"
+          ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
           "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
-          echo "Exit code: $?" >> "$LOGFILE"
           EOF
           chmod +x /tmp/appdir/AppRun
 
@@ -151,7 +143,6 @@ jobs:
           mkdir -p /tmp/appdir/usr/share/icons/hicolor/48x48/apps
           wget -O /tmp/appdir/claws-mail.png "https://www.claws-mail.org/images/claws-mail_icon_48.png"
           cp /tmp/appdir/claws-mail.png /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png
-          chmod 644 /tmp/appdir/claws-mail.png
 
       - name: Bundle with linuxdeployqt
         run: |
@@ -159,10 +150,10 @@ jobs:
 
       - name: Package AppImage
         run: |
-          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.3.0-x86_64.AppImage
+          ./appimagetool --no-appstream -v /tmp/appdir claws-mail-4.2.0-x86_64.AppImage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
           name: claws-mail-appimage
-          path: claws-mail-4.3.0-x86_64.AppImage
+          path: claws-mail-4.2.0-x86_64.AppImage
