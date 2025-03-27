@@ -7,7 +7,10 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Install build dependencies
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends \
@@ -45,43 +48,36 @@ jobs:
           make -j$(nproc)
           sudo make install
 
-      - name: Download Claws Mail 4.2.0
+      - name: Download and build Claws Mail
         run: |
           wget https://www.claws-mail.org/releases/claws-mail-4.2.0.tar.xz
           tar xf claws-mail-4.2.0.tar.xz
-
-      - name: Build Claws Mail with debug
-        run: |
           cd claws-mail-4.2.0
           ./configure --prefix=/tmp/appdir/usr
           make -j$(nproc)
           make install
 
-      - name: Create AppImage structure
+      - name: Prepare AppDir
         run: |
           mkdir -p /tmp/appdir/usr/lib /tmp/appdir/usr/bin
-          cp claws-mail-4.2.0/src/claws-mail /tmp/appdir/usr/bin/
+          cp /tmp/appdir/usr/bin/claws-mail /tmp/appdir/usr/bin/claws-mail
+          chmod +x /tmp/appdir/usr/bin/claws-mail
           for lib in libgtk-3.so.0 libglib-2.0.so.0 libgobject-2.0.so.0 libnotify.so.4 \
                      libetpan.so.20 libgnutls.so.30 libcompface.so.1 \
                      libstartup-notification-1.so.0 ld-linux-x86-64.so.2 libc.so.6; do
-            cp -v $(ldconfig -p | grep $lib | head -n1 | awk '{print $4}') /tmp/appdir/usr/lib/ || echo "$lib not found"
+            path=$(ldconfig -p | grep $lib | head -n1 | awk '{print $4}')
+            [ -f "$path" ] && cp -v "$path" /tmp/appdir/usr/lib/ || echo "$lib not found"
           done
 
-      - name: Create AppRun
+      - name: Create AppRun and Desktop file
         run: |
-          cat << 'EOF' > /tmp/appdir/AppRun
-          #!/bin/bash
-          export LD_LIBRARY_PATH="$(dirname "$0")/usr/lib:$LD_LIBRARY_PATH"
+          echo '#!/bin/bash
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
           export GNUTLS_DEBUG_LEVEL=9
-          export GNUTLS_PRIORITY="NORMAL"
-          LOGFILE="$HOME/claws-mail-appimage-run.log"
-          echo "Launching Claws Mail with GnuTLS debugging" > "$LOGFILE"
-          exec "$(dirname "$0")/usr/bin/claws-mail" "$@" >> "$LOGFILE" 2>&1
-          EOF
+          exec "$HERE/usr/bin/claws-mail" "$@"' > /tmp/appdir/AppRun
           chmod +x /tmp/appdir/AppRun
 
-      - name: Create .desktop and icon
-        run: |
           echo '[Desktop Entry]
           Name=Claws Mail
           Exec=claws-mail
@@ -89,17 +85,19 @@ jobs:
           Icon=claws-mail
           Categories=Network;Email;' > /tmp/appdir/claws-mail.desktop
 
+      - name: Add Icon
+        run: |
           mkdir -p /tmp/appdir/usr/share/icons/hicolor/48x48/apps
           wget -O /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png https://www.claws-mail.org/images/claws-mail_icon_48.png
 
-      - name: Package AppImage
+      - name: Download linuxdeploy and build AppImage
         run: |
           wget -O linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy
           ./linuxdeploy --appdir /tmp/appdir -d /tmp/appdir/claws-mail.desktop -i /tmp/appdir/usr/share/icons/hicolor/48x48/apps/claws-mail.png --output appimage
 
-      - name: Upload AppImage
+      - name: Upload Claws Mail AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: ClawsMail-AppImage
+          name: claws-mail-4.2.0-appimage
           path: ./*.AppImage
