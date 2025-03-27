@@ -25,10 +25,7 @@ jobs:
             python3-dev libytnef0-dev libical-dev libarchive-dev libldap2-dev \
             libcompfaceg1-dev libdb-dev libstartup-notification0-dev libx11-dev \
             libsm-dev libsoup2.4-dev libgumbo-dev libsecret-1-dev libjson-glib-dev \
-            ghostscript spamassassin appstream || echo "Some optional deps failed."
-          sudo apt-get install -y libwebkit2gtk-4.0-dev || \
-          sudo apt-get install -y libwebkit2gtk-4.1-dev || \
-          echo "WebKitGTK skipped; Fancy plugin may not work."
+            ghostscript spamassassin appstream libwebkit2gtk-4.1-dev
 
       - name: Set up working directory
         run: |
@@ -112,7 +109,7 @@ jobs:
           exit \$EXIT_CODE
           EOF
           chmod +x AppRun
-          ls -l AppRun  # Verify AppRun exists and is executable
+          ls -l AppRun
 
       - name: Bundle external tools
         run: |
@@ -146,9 +143,11 @@ jobs:
             --executable=ClawsMail.AppDir/usr/bin/gs \
             --executable=ClawsMail.AppDir/usr/bin/perl \
             --desktop-file=ClawsMail.AppDir/claws-mail.desktop \
-            --icon-file=ClawsMail.AppDir/claws-mail.png
-          ./appimagetool.AppImage ClawsMail.AppDir claws-mail-4.3.0.AppImage
-          ls -l claws-mail-4.3.0.AppImage  # Verify AppImage creation
+            --icon-file=ClawsMail.AppDir/claws-mail.png \
+            --output appimage \
+            --verbosity=2  # Increase verbosity for debugging
+          mv ClawsMail-x86_64.AppImage claws-mail-4.3.0.AppImage
+          ls -l claws-mail-4.3.0.AppImage
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
