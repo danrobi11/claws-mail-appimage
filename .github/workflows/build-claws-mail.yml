@@ -34,11 +34,11 @@ jobs:
           ls -l /usr/lib/libicu*.so.74 || exit 1
           # Update linker cache
           echo "/usr/lib" > /etc/ld.so.conf
-          ldconfig || true  # Ignore if ldconfig isn’t available
+          ldconfig || true
 
       - name: Install Claws Mail dependencies
         run: |
-          apk add --no-cache --no-deps \
+          apk add --no-cache \
             git wget pkgconf \
             musl-dev gtk+3.0-dev fuse \
             libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
@@ -46,8 +46,13 @@ jobs:
             python3-dev libical-dev libarchive-dev openldap-dev \
             db-dev libx11-dev libsm-dev libsoup-dev \
             gumbo-parser-dev libsecret-dev json-glib-dev \
-            ghostscript spamassassin appstream-glib webkit2gtk-4.1-dev \
-            linux-headers glib-dev qt5-qtbase-dev
+            ghostscript spamassassin appstream-glib \
+            linux-headers glib-dev
+          # Manually install ICU-dependent packages
+          wget -q -O webkit2gtk-4.1-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/webkit2gtk-4.1-dev-2.46.4-r0.apk"
+          wget -q -O qt5-qtbase-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/qt5-qtbase-dev-5.15.10_git20230714-r3.apk"
+          apk add --allow-untrusted webkit2gtk-4.1-dev.apk qt5-qtbase-dev.apk
+          rm *.apk
 
       - name: Download Claws Mail source
         run: |
