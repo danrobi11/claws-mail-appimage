@@ -27,8 +27,8 @@ jobs:
             python3-dev libical-dev libarchive-dev openldap-dev \
             db-dev libx11-dev libsm-dev libsoup-dev \
             gumbo-parser-dev libsecret-dev json-glib-dev \
-            ghostscript spamassassin appstream-glib webkit2gtk-4.1-dev \
-            linux-headers glib-dev icu-dev
+            ghostscript spamassassin appstream-glib \
+            linux-headers glib-dev
 
       - name: Download Claws Mail source
         run: |
@@ -46,7 +46,7 @@ jobs:
             --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
             --enable-canberra --enable-notify --enable-perl --enable-python \
             --enable-vcalendar --enable-ldap \
-            --enable-dillo --enable-fancy --enable-rssyl --enable-spamassassin \
+            --enable-dillo --disable-fancy --enable-rssyl --enable-spamassassin \
             --enable-bogofilter --enable-notification --enable-pdf-viewer \
             --enable-spam-report --enable-address-keeper --enable-acpi-notifier \
             --enable-maildir --enable-newmail --enable-managesieve || \
@@ -72,7 +72,7 @@ jobs:
           ldd usr/bin/claws-mail | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
             cp -v "$lib" usr/lib/ || echo "Warning: $lib not found, may need manual inclusion"
           done
-          # Copy additional common libraries that might be missed
+          # Copy additional common libraries
           for lib in /usr/lib/lib*.so*; do
             cp -v "$lib" usr/lib/ || true
           done
