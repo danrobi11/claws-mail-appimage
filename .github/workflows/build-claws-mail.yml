@@ -16,23 +16,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install ICU 74 manually
+      - name: Install build tools for ICU
         run: |
           apk update
-          apk add --no-cache curl tar
-          wget https://github.com/unicode-org/icu/releases/download/release-74-2/icu4c-74_2-Alpine-Linux.tgz -O icu.tar.gz
-          tar -xzf icu.tar.gz -C /usr
-          rm icu.tar.gz
+          apk add --no-cache bash build-base curl tar
+
+      - name: Install ICU 74 from source
+        run: |
+          wget https://github.com/unicode-org/icu/releases/download/release-74-2/icu4c-74_2-src.tgz -O icu.tar.gz
+          tar -xzf icu.tar.gz
+          cd icu/source
+          ./configure --prefix=/usr
+          make -j$(nproc)
+          make install
+          rm -rf ../../icu.tar.gz ../../icu
           # Verify ICU 74 libraries are installed
           ls -l /usr/lib/libicu*.so.74 || exit 1
-          # Update ldconfig to recognize the new libraries
+          # Update linker cache
           echo "/usr/lib" > /etc/ld.so.conf
           ldconfig || true
 
-      - name: Install build tools and dependencies
+      - name: Install Claws Mail dependencies
         run: |
           apk add --no-cache \
-            bash build-base git curl wget pkgconf \
+            git wget pkgconf \
             musl-dev gtk+3.0-dev fuse \
             libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
             poppler-dev libcanberra-dev libnotify-dev perl-dev \
