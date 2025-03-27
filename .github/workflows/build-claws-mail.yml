@@ -41,24 +41,32 @@ jobs:
         run: |
           apk add --no-cache \
             git wget \
-            musl-dev gtk+3.0-dev fuse \
+            musl-dev fuse \
             libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
-            poppler-dev libcanberra-dev libnotify-dev perl-dev \
-            python3-dev libical-dev libarchive-dev openldap-dev \
-            db-dev libx11-dev libsm-dev libsoup-dev \
-            gumbo-parser-dev libsecret-dev json-glib-dev \
-            ghostscript spamassassin appstream-glib \
-            glib-dev
+            libarchive-dev openldap-dev \
+            db-dev libx11-dev libsm-dev \
+            gumbo-parser-dev libsecret-dev \
+            ghostscript spamassassin
+          # Install minimal GUI-related packages without Qt/WebKit dependencies
+          apk add --no-cache \
+            gtk+3.0-dev libcanberra-dev libnotify-dev \
+            perl-dev python3-dev libical-dev \
+            json-glib-dev glib-dev
           # Manually extract ICU-dependent packages
           wget -q -O webkit2gtk-4.1-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/webkit2gtk-4.1-dev-2.46.4-r0.apk"
           wget -q -O qt5-qtbase-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/qt5-qtbase-dev-5.15.10_git20230714-r3.apk"
-          # Extract instead of using apk add
-          mkdir -p /tmp/webkit /tmp/qt5
+          wget -q -O poppler-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/poppler-dev-24.10.0-r0.apk"
+          wget -q -O libsoup-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libsoup-dev-2.74.3-r3.apk"
+          mkdir -p /tmp/webkit /tmp/qt5 /tmp/poppler /tmp/libsoup
           tar -xzf webkit2gtk-4.1-dev.apk -C /tmp/webkit
           tar -xzf qt5-qtbase-dev.apk -C /tmp/qt5
+          tar -xzf poppler-dev.apk -C /tmp/poppler
+          tar -xzf libsoup-dev.apk -C /tmp/libsoup
           cp -r /tmp/webkit/usr/* /usr/
           cp -r /tmp/qt5/usr/* /usr/
-          rm -rf *.apk /tmp/webkit /tmp/qt5
+          cp -r /tmp/poppler/usr/* /usr/
+          cp -r /tmp/libsoup/usr/* /usr/
+          rm -rf *.apk /tmp/webkit /tmp/qt5 /tmp/poppler /tmp/libsoup
 
       - name: Download Claws Mail source
         run: |
@@ -97,6 +105,7 @@ jobs:
       - name: Bundle all shared library dependencies
         run: |
           cd ~/claws-mail-install
+          mkdir -p usr/lib
           # Copy the binary
           cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/
           # Find and copy all shared libraries
