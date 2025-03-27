@@ -102,7 +102,7 @@ jobs:
           #!/bin/bash
           HERE="\$(dirname "\$(readlink -f "\${0}")")"
           LOG_FILE="\$HOME/.claws-mail-appimage.log"
-          echo "[$(date)] AppImage started" > "\$LOG_FILE" 2>&1
+          echo "[$(date)] AppImage started" > "\$LOG_FILE" 2>&1 || echo "Failed to write log" >&2
           echo "Environment: \$PATH" >> "\$LOG_FILE" 2>&1
           echo "LD_LIBRARY_PATH: \$LD_LIBRARY_PATH" >> "\$LOG_FILE" 2>&1
           echo "Running claws-mail from: \$HERE/usr/bin/claws-mail" >> "\$LOG_FILE" 2>&1
@@ -112,6 +112,7 @@ jobs:
           exit \$EXIT_CODE
           EOF
           chmod +x AppRun
+          ls -l AppRun  # Verify AppRun exists and is executable
 
       - name: Bundle external tools
         run: |
@@ -147,6 +148,7 @@ jobs:
             --desktop-file=ClawsMail.AppDir/claws-mail.desktop \
             --icon-file=ClawsMail.AppDir/claws-mail.png
           ./appimagetool.AppImage ClawsMail.AppDir claws-mail-4.3.0.AppImage
+          ls -l claws-mail-4.3.0.AppImage  # Verify AppImage creation
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
