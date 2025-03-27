@@ -68,6 +68,7 @@ jobs:
             --disable-brotli \
             --without-brotli \
             --with-nettle-mini \
+            --disable-tls1.3 \
             CFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" || { cat config.log; exit 1; }
           make -j$(nproc)
           sudo make install
@@ -166,8 +167,10 @@ jobs:
           /lib64/ld-linux-x86-64.so.2 --version >> "$LOGFILE" 2>&1 || echo "glibc version not found" >> "$LOGFILE"
           echo "Checking dependencies..." >> "$LOGFILE"
           ldd "$HERE/usr/bin/claws-mail" >> "$LOGFILE" 2>&1
-          echo "Running Claws Mail with debug..." >> "$LOGFILE"
+          echo "Setting GnuTLS environment variables..." >> "$LOGFILE"
+          export GNUTLS_PRIORITY="NORMAL:+VERS-TLS1.2"
           export GNUTLS_DEBUG_LEVEL=9
+          echo "Running Claws Mail with debug..." >> "$LOGFILE"
           "$HERE/usr/lib/ld-linux-x86-64.so.2" "$HERE/usr/bin/claws-mail" --debug "$@" >> "$LOGFILE" 2>&1
           EXIT_CODE=$?
           echo "Claws Mail exited with code $EXIT_CODE" >> "$LOGFILE"
