@@ -35,12 +35,23 @@ jobs:
           mkdir -p ~/claws-mail-appimage-build
           mkdir -p ~/claws-mail-appimage-build/install
           mkdir -p ~/claws-mail-appimage-build/ClawsMail.AppDir
-          cd ~/claws-mail-appimage-build
 
       - name: Download Claws Mail source
         run: |
+          cd ~/claws-mail-appimage-build
           wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
           tar -xf claws-mail-4.3.0.tar.xz
+
+      - name: Debug directory contents
+        run: |
+          cd ~/claws-mail-appimage-build
+          ls -la
+          if [ -d "claws-mail-4.3.0" ]; then
+            echo "Directory claws-mail-4.3.0 exists."
+          else
+            echo "Error: Directory claws-mail-4.3.0 not found."
+            exit 1
+          fi
 
       - name: Configure Claws Mail
         run: |
