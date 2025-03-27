@@ -1,4 +1,4 @@
-name: Build Claws Mail Binary for Void
+name: Build Claws Mail Static Binary for Void
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: alpine:edge  # musl-based, similar to Void
+    container: alpine:edge
 
     steps:
       - name: Checkout repository
@@ -20,14 +20,16 @@ jobs:
         run: |
           apk update
           apk add --no-cache \
-            bash build-base git curl wget pkgconf gtk+3.0-dev fuse \
+            bash build-base git curl wget pkgconf \
+            musl-dev gtk+3.0-dev fuse \
             libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
             poppler-dev libcanberra-dev libnotify-dev perl-dev \
-            python3-dev libytnef-dev libical-dev libarchive-dev openldap-dev \
-            libcompface-dev db-dev libx11-dev libsm-dev libsoup-dev \
+            python3-dev libical-dev libarchive-dev openldap-dev \
+            db-dev libx11-dev libsm-dev libsoup-dev \
             gumbo-parser-dev libsecret-dev json-glib-dev \
-            ghostscript spamassassin appstream-glib webkit2gtk-dev \
-            linux-headers glib-dev
+            ghostscript spamassassin appstream-glib webkit2gtk-4.1-dev \
+            linux-headers glib-dev \
+            gnutls-static zlib-static bzip2-static expat-static
 
       - name: Download Claws Mail source
         run: |
@@ -36,20 +38,20 @@ jobs:
           wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
           tar -xf claws-mail-4.3.0.tar.xz
 
-      - name: Configure Claws Mail
+      - name: Configure Claws Mail with static linking
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
-          ./configure \
+          LDFLAGS="-static" ./configure \
             --prefix=/usr \
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
             --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
             --enable-canberra --enable-notify --enable-perl --enable-python \
-            --enable-tnef --enable-vcalendar --enable-ldap --enable-compface \
+            --enable-vcalendar --enable-ldap \
             --enable-dillo --enable-fancy --enable-rssyl --enable-spamassassin \
             --enable-bogofilter --enable-notification --enable-pdf-viewer \
             --enable-spam-report --enable-address-keeper --enable-acpi-notifier \
             --enable-maildir --enable-newmail --enable-managesieve || \
-            echo "Some plugins may be disabled."
+            echo "Some plugins may be disabled; static linking may not fully succeed."
 
       - name: Build Claws Mail
         run: |
@@ -59,20 +61,22 @@ jobs:
       - name: Install Claws Mail to a staging directory
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
-          mkdir -p ~/claws-mail-install
-          make install DESTDIR=~/claws-mail-install
+          mkdir -p ~/claws-mail-install/usr/bin ~/claws-mail-install/usr/lib
+          cp src/claws-mail ~/claws-mail-install/usr/bin/
+          # Bundle shared libraries if static linking isn't complete
+          ldd src/claws-mail | grep -o '/[^ ]*' | xargs -I {} cp -v {} ~/claws-mail-install/usr/lib/
 
-      - name: Create tarball
+      - name: Create tarball with binary and libraries
         run: |
           cd ~/claws-mail-install
-          tar -czf ~/claws-mail-4.3.0-void.tar.gz .
+          tar -czf ~/claws-mail-4.3.0-void-static.tar.gz .
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: claws-mail-void-binary
-          path: ~/claws-mail-4.3.0-void.tar.gz
+          name: claws-mail-void-static
+          path: ~/claws-mail-4.3.0-void-static.tar.gz
 
       - name: Display SHA256 checksum
         run: |
-          sha256sum ~/claws-mail-4.3.0-void.tar.gz
+          sha256sum ~/claws-mail-4.3.0-void-static.tar.gz
