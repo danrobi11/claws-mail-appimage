@@ -12,11 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository (if you store this script or related files there)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set up environment and install dependencies
       - name: Install build tools and dependencies
         run: |
           sudo apt-get update
@@ -28,12 +26,10 @@ jobs:
             libcompfaceg1-dev libdb-dev libstartup-notification0-dev libx11-dev \
             libsm-dev libsoup2.4-dev libgumbo-dev libsecret-1-dev libjson-glib-dev \
             ghostscript spamassassin appstream || echo "Some optional deps failed."
-          # Try WebKitGTK 4.0 or 4.1
           sudo apt-get install -y libwebkit2gtk-4.0-dev || \
           sudo apt-get install -y libwebkit2gtk-4.1-dev || \
           echo "WebKitGTK skipped; Fancy plugin may not work."
 
-      # Set up working directory
       - name: Set up working directory
         run: |
           mkdir -p ~/claws-mail-appimage-build
@@ -41,16 +37,14 @@ jobs:
           mkdir -p ~/claws-mail-appimage-build/ClawsMail.AppDir
           cd ~/claws-mail-appimage-build
 
-      # Download and extract Claws Mail source
       - name: Download Claws Mail source
         run: |
           wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
           tar -xf claws-mail-4.3.0.tar.xz
-          cd claws-mail-4.3.0
 
-      # Configure Claws Mail with all plugins
       - name: Configure Claws Mail
         run: |
+          cd ~/claws-mail-appimage-build/claws-mail-4.3.0
           ./configure \
             --prefix="$HOME/claws-mail-appimage-build/install" \
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
@@ -63,13 +57,12 @@ jobs:
             --enable-maildir --enable-newmail --enable-managesieve || \
             echo "Some plugins may be disabled."
 
-      # Build and install Claws Mail
       - name: Build and install Claws Mail
         run: |
+          cd ~/claws-mail-appimage-build/claws-mail-4.3.0
           make -j$(nproc)
           make install
 
-      # Set up AppImage directory structure
       - name: Prepare AppImage structure
         run: |
           cd ~/claws-mail-appimage-build/ClawsMail.AppDir
@@ -99,7 +92,6 @@ jobs:
           fi
           chmod 644 claws-mail.png usr/share/icons/hicolor/48x48/apps/claws-mail.png
 
-      # Create AppRun with debug logging
       - name: Create AppRun with debug logging
         run: |
           cd ~/claws-mail-appimage-build/ClawsMail.AppDir
@@ -118,7 +110,6 @@ jobs:
           EOF
           chmod +x AppRun
 
-      # Bundle external tools
       - name: Bundle external tools
         run: |
           cd ~/claws-mail-appimage-build/ClawsMail.AppDir
@@ -136,7 +127,6 @@ jobs:
             cp -r /usr/share/perl/* usr/share/perl/
           fi
 
-      # Download linuxdeploy and appimagetool
       - name: Download build tools
         run: |
           cd ~/claws-mail-appimage-build
@@ -144,7 +134,6 @@ jobs:
           wget "https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage" -O appimagetool.AppImage
           chmod +x linuxdeploy.AppImage appimagetool.AppImage
 
-      # Bundle dependencies and create AppImage
       - name: Bundle dependencies and create AppImage
         run: |
           cd ~/claws-mail-appimage-build
@@ -156,14 +145,12 @@ jobs:
             --icon-file=ClawsMail.AppDir/claws-mail.png
           ./appimagetool.AppImage ClawsMail.AppDir claws-mail-4.3.0.AppImage
 
-      # Upload AppImage as artifact
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
         with:
           name: claws-mail-appimage
           path: ~/claws-mail-appimage-build/claws-mail-4.3.0.AppImage
 
-      # Display SHA256 checksum
       - name: Display SHA256 checksum
         run: |
           sha256sum ~/claws-mail-appimage-build/claws-mail-4.3.0.AppImage
