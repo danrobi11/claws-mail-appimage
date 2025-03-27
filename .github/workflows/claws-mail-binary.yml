@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: alpine:edge  # musl-based, similar to Void
+    container: alpine:edge
 
     steps:
       - name: Checkout repository
@@ -23,10 +23,10 @@ jobs:
             bash build-base git curl wget pkgconf gtk+3.0-dev fuse \
             libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
             poppler-dev libcanberra-dev libnotify-dev perl-dev \
-            python3-dev libytnef-dev libical-dev libarchive-dev openldap-dev \
-            libcompface-dev db-dev libx11-dev libsm-dev libsoup-dev \
+            python3-dev libical-dev libarchive-dev openldap-dev \
+            db-dev libx11-dev libsm-dev libsoup-dev \
             gumbo-parser-dev libsecret-dev json-glib-dev \
-            ghostscript spamassassin appstream-glib webkit2gtk-dev \
+            ghostscript spamassassin appstream-glib webkit2gtk-4.1-dev \
             linux-headers glib-dev
 
       - name: Download Claws Mail source
@@ -44,7 +44,7 @@ jobs:
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
             --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
             --enable-canberra --enable-notify --enable-perl --enable-python \
-            --enable-tnef --enable-vcalendar --enable-ldap --enable-compface \
+            --enable-vcalendar --enable-ldap \
             --enable-dillo --enable-fancy --enable-rssyl --enable-spamassassin \
             --enable-bogofilter --enable-notification --enable-pdf-viewer \
             --enable-spam-report --enable-address-keeper --enable-acpi-notifier \
