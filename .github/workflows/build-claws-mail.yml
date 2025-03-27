@@ -31,9 +31,7 @@ jobs:
           make -j$(nproc)
           make install
           rm -rf ../../icu.tar.gz ../../icu
-          # Verify ICU 74 libraries
           ls -l /usr/lib/libicu*.so.74 || { echo "ICU 74 libraries not found"; exit 1; }
-          # Set linker path for subsequent steps
           export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
           echo "LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
@@ -41,14 +39,23 @@ jobs:
         run: |
           apk add --no-cache \
             git wget \
-            musl-dev fuse \
-            libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
-            libarchive-dev openldap-dev \
-            db-dev libx11-dev libsm-dev \
-            gumbo-parser-dev libsecret-dev \
-            ghostscript spamassassin \
-            perl-dev python3-dev libical-dev
-          # Manually extract all potentially ICU/Qt/WebKit-dependent packages
+            musl-dev \
+            libetpan-dev gnutls-dev \
+            libarchive-dev \
+            ghostscript spamassassin
+          # Manually extract everything else to avoid Qt sneaking in
+          wget -q -O fuse.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/fuse-2.9.9-r5.apk"
+          wget -q -O gpgme-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/gpgme-dev-1.24.0-r0.apk"
+          wget -q -O enchant2-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/enchant2-dev-2.8.2-r0.apk"
+          wget -q -O openldap-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/openldap-dev-2.6.8-r1.apk"
+          wget -q -O db-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/db-dev-5.3.28-r4.apk"
+          wget -q -O libx11-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libx11-dev-1.8.10-r0.apk"
+          wget -q -O libsm-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libsm-dev-1.2.4-r4.apk"
+          wget -q -O gumbo-parser-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/gumbo-parser-dev-0.12.1-r0.apk"
+          wget -q -O libsecret-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libsecret-dev-0.21.4-r1.apk"
+          wget -q -O perl-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/perl-dev-5.40.0-r2.apk"
+          wget -q -O python3-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/python3-dev-3.12.7-r0.apk"
+          wget -q -O libical-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libical-dev-3.0.18-r1.apk"
           wget -q -O gtk+3.0-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/gtk+3.0-dev-3.24.43-r1.apk"
           wget -q -O libcanberra-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libcanberra-dev-0.30-r10.apk"
           wget -q -O libnotify-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libnotify-dev-0.8.3-r1.apk"
@@ -58,7 +65,19 @@ jobs:
           wget -q -O qt5-qtbase-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/qt5-qtbase-dev-5.15.10_git20230714-r3.apk"
           wget -q -O poppler-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/poppler-dev-24.10.0-r0.apk"
           wget -q -O libsoup-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libsoup-dev-2.74.3-r3.apk"
-          mkdir -p /tmp/gtk /tmp/canberra /tmp/notify /tmp/json /tmp/glib /tmp/webkit /tmp/qt5 /tmp/poppler /tmp/libsoup
+          mkdir -p /tmp/fuse /tmp/gpgme /tmp/enchant /tmp/ldap /tmp/db /tmp/x11 /tmp/sm /tmp/gumbo /tmp/secret /tmp/perl /tmp/python /tmp/ical /tmp/gtk /tmp/canberra /tmp/notify /tmp/json /tmp/glib /tmp/webkit /tmp/qt5 /tmp/poppler /tmp/libsoup
+          tar -xzf fuse.apk -C /tmp/fuse
+          tar -xzf gpgme-dev.apk -C /tmp/gpgme
+          tar -xzf enchant2-dev.apk -C /tmp/enchant
+          tar -xzf openldap-dev.apk -C /tmp/ldap
+          tar -xzf db-dev.apk -C /tmp/db
+          tar -xzf libx11-dev.apk -C /tmp/x11
+          tar -xzf libsm-dev.apk -C /tmp/sm
+          tar -xzf gumbo-parser-dev.apk -C /tmp/gumbo
+          tar -xzf libsecret-dev.apk -C /tmp/secret
+          tar -xzf perl-dev.apk -C /tmp/perl
+          tar -xzf python3-dev.apk -C /tmp/python
+          tar -xzf libical-dev.apk -C /tmp/ical
           tar -xzf gtk+3.0-dev.apk -C /tmp/gtk
           tar -xzf libcanberra-dev.apk -C /tmp/canberra
           tar -xzf libnotify-dev.apk -C /tmp/notify
@@ -68,6 +87,18 @@ jobs:
           tar -xzf qt5-qtbase-dev.apk -C /tmp/qt5
           tar -xzf poppler-dev.apk -C /tmp/poppler
           tar -xzf libsoup-dev.apk -C /tmp/libsoup
+          cp -r /tmp/fuse/usr/* /usr/
+          cp -r /tmp/gpgme/usr/* /usr/
+          cp -r /tmp/enchant/usr/* /usr/
+          cp -r /tmp/ldap/usr/* /usr/
+          cp -r /tmp/db/usr/* /usr/
+          cp -r /tmp/x11/usr/* /usr/
+          cp -r /tmp/sm/usr/* /usr/
+          cp -r /tmp/gumbo/usr/* /usr/
+          cp -r /tmp/secret/usr/* /usr/
+          cp -r /tmp/perl/usr/* /usr/
+          cp -r /tmp/python/usr/* /usr/
+          cp -r /tmp/ical/usr/* /usr/
           cp -r /tmp/gtk/usr/* /usr/
           cp -r /tmp/canberra/usr/* /usr/
           cp -r /tmp/notify/usr/* /usr/
@@ -77,7 +108,7 @@ jobs:
           cp -r /tmp/qt5/usr/* /usr/
           cp -r /tmp/poppler/usr/* /usr/
           cp -r /tmp/libsoup/usr/* /usr/
-          rm -rf *.apk /tmp/gtk /tmp/canberra /tmp/notify /tmp/json /tmp/glib /tmp/webkit /tmp/qt5 /tmp/poppler /tmp/libsoup
+          rm -rf *.apk /tmp/*
 
       - name: Download Claws Mail source
         run: |
@@ -117,20 +148,15 @@ jobs:
         run: |
           cd ~/claws-mail-install
           mkdir -p usr/lib
-          # Copy the binary
           cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/
-          # Find and copy all shared libraries
           ldd usr/bin/claws-mail | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
             cp -v "$lib" usr/lib/ || { echo "Warning: $lib not found, may need manual inclusion"; continue; }
           done
-          # Include ICU 74 and GnuTLS explicitly
           cp -v /usr/lib/libicu*.so.74* usr/lib/
           cp -v /usr/lib/libgnutls*.so* usr/lib/
-          # Copy additional common libraries
           for lib in /usr/lib/lib*.so*; do
             cp -v "$lib" usr/lib/ || true
           done
-          # Strip binaries to reduce size
           strip usr/bin/claws-mail usr/lib/*.so* 2>/dev/null || true
 
       - name: Create tarball with binary and libraries
