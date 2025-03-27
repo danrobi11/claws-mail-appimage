@@ -9,8 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Temporarily keep Ubuntu to test AppRun fix; switch to alpine later
-    container: alpine:edge  # Use Alpine for musl compatibility
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -18,16 +17,18 @@ jobs:
 
       - name: Install build tools and dependencies
         run: |
-          apk update
-          apk add --no-cache \
-            bash build-base git curl wget pkgconf gtk+3.0-dev fuse \
-            libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
-            poppler-dev libcanberra-dev libnotify-dev perl-dev \
-            python3-dev libytnef-dev libical-dev libarchive-dev openldap-dev \
-            libcompface-dev db-dev libx11-dev libsm-dev libsoup-dev \
-            gumbo-parser-dev libsecret-dev json-glib-dev \
-            ghostscript spamassassin appstream-glib webkit2gtk-dev \
-            linux-headers patchelf
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential git curl wget pkg-config libgtk-3-dev libfuse2 \
+            libetpan-dev libgnutls28-dev libgpgme-dev libenchant-2-dev \
+            libpoppler-glib-dev libcanberra-dev libnotify-dev libperl-dev \
+            python3-dev libytnef0-dev libical-dev libarchive-dev libldap2-dev \
+            libcompfaceg1-dev libdb-dev libstartup-notification0-dev libx11-dev \
+            libsm-dev libsoup2.4-dev libgumbo-dev libsecret-1-dev libjson-glib-dev \
+            ghostscript spamassassin appstream || echo "Some optional deps failed."
+          sudo apt-get install -y libwebkit2gtk-4.0-dev || \
+          sudo apt-get install -y libwebkit2gtk-4.1-dev || \
+          echo "WebKitGTK skipped; Fancy plugin may not work."
 
       - name: Set up working directory
         run: |
@@ -118,10 +119,10 @@ jobs:
           cp /usr/bin/gs usr/bin/
           cp /usr/bin/spamassassin usr/bin/
           cp /usr/bin/perl usr/bin/
-          if [ -d "/usr/lib/perl" ]; then
-            cp -r /usr/lib/perl usr/lib/
-          elif [ -d "/usr/lib/perl5" ]; then
-            cp -r /usr/lib/perl5 usr/lib/
+          if [ -d "/usr/lib/x86_64-linux-gnu/perl" ]; then
+            cp -r /usr/lib/x86_64-linux-gnu/perl usr/lib/
+          elif [ -d "/usr/lib/x86_64-linux-gnu/perl5" ]; then
+            cp -r /usr/lib/x86_64-linux-gnu/perl5 usr/lib/
           else
             echo "Warning: Perl libraries not found; SpamAssassin may not work."
           fi
