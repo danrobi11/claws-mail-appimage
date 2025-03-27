@@ -38,7 +38,7 @@ jobs:
 
       - name: Install Claws Mail dependencies
         run: |
-          apk add --no-cache \
+          apk add --no-cache --no-deps \
             git wget pkgconf \
             musl-dev gtk+3.0-dev fuse \
             libetpan-dev gnutls-dev gpgme-dev enchant2-dev \
@@ -46,10 +46,8 @@ jobs:
             python3-dev libical-dev libarchive-dev openldap-dev \
             db-dev libx11-dev libsm-dev libsoup-dev \
             gumbo-parser-dev libsecret-dev json-glib-dev \
-            ghostscript spamassassin appstream-glib \
-            linux-headers glib-dev
-          # Install ICU-dependent packages without dependency checks
-          apk add --no-cache --no-deps webkit2gtk-4.1-dev qt5-qtbase-dev
+            ghostscript spamassassin appstream-glib webkit2gtk-4.1-dev \
+            linux-headers glib-dev qt5-qtbase-dev
 
       - name: Download Claws Mail source
         run: |
