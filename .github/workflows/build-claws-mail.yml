@@ -25,7 +25,7 @@ jobs:
             python3-dev libytnef0-dev libical-dev libarchive-dev libldap2-dev \
             libcompfaceg1-dev libdb-dev libstartup-notification0-dev libx11-dev \
             libsm-dev libsoup2.4-dev libgumbo-dev libsecret-1-dev libjson-glib-dev \
-            ghostscript spamassassin appstream libwebkit2gtk-4.1-dev
+            ghostscript spamassassin appstream libwebkit2gtk-4.1-dev libglib2.0-dev
 
       - name: Set up working directory
         run: |
@@ -101,7 +101,8 @@ jobs:
           LOG_FILE="\$HOME/.claws-mail-appimage.log"
           echo "[$(date)] AppImage started" > "\$LOG_FILE" 2>&1 || echo "Failed to write log" >&2
           echo "Environment: \$PATH" >> "\$LOG_FILE" 2>&1
-          echo "LD_LIBRARY_PATH: \$LD_LIBRARY_PATH" >> "\$LOG_FILE" 2>&1
+          echo "LD_LIBRARY_PATH: \$HERE/usr/lib:\$LD_LIBRARY_PATH" >> "\$LOG_FILE" 2>&1
+          export LD_LIBRARY_PATH="\$HERE/usr/lib:\$LD_LIBRARY_PATH"
           echo "Running claws-mail from: \$HERE/usr/bin/claws-mail" >> "\$LOG_FILE" 2>&1
           "\$HERE/usr/bin/claws-mail" "\$@" 2>> "\$LOG_FILE"
           EXIT_CODE=\$?
@@ -127,165 +128,9 @@ jobs:
           if [ -d "/usr/share/perl" ]; then
             cp -r /usr/share/perl/* usr/share/perl/
           fi
-
-      - name: Download build tools
-        run: |
-          cd ~/claws-mail-appimage-build
-          wget "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" -O linuxdeploy.AppImage
-          wget "https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage" -O appimagetool.AppImage
-          chmod +x linuxdeploy.AppImage appimagetool.AppImage
-
-      - name: Bundle dependencies and create AppImage
-        run: |
-          cd ~/claws-mail-appimage-build
-          ./linuxdeploy.AppImage --appdir ClawsMail.AppDir \
-            --executable=ClawsMail.AppDir/usr/bin/claws-mail \
-            --executable=ClawsMail.AppDir/usr/bin/gs \
-            --executable=ClawsMail.AppDir/usr/bin/perl \
-            --desktop-file=ClawsMail.AppDir/claws-mail.desktop \
-            --icon-file=ClawsMail.AppDir/claws-mail.png \
-            --output appimage \
-            --verbosity=2
-          mv Claws_Mail-x86_64.AppImage claws-mail-4.3.0.AppImage
-          ls -l claws-mail-4.3.0.AppImage
-
-      - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: claws-mail-appimage
-          path: ~/claws-mail-appimage-build/claws-mail-4.3.0.AppImage
-
-      - name: Display SHA256 checksum
-        run: |
-          sha256sum ~/claws-mail-appimage-build/claws-mail-4.3.0.AppImagename: Build Claws Mail AppImage
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install build tools and dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential git curl wget pkg-config libgtk-3-dev libfuse2 \
-            libetpan-dev libgnutls28-dev libgpgme-dev libenchant-2-dev \
-            libpoppler-glib-dev libcanberra-dev libnotify-dev libperl-dev \
-            python3-dev libytnef0-dev libical-dev libarchive-dev libldap2-dev \
-            libcompfaceg1-dev libdb-dev libstartup-notification0-dev libx11-dev \
-            libsm-dev libsoup2.4-dev libgumbo-dev libsecret-1-dev libjson-glib-dev \
-            ghostscript spamassassin appstream libwebkit2gtk-4.1-dev
-
-      - name: Set up working directory
-        run: |
-          mkdir -p ~/claws-mail-appimage-build
-          mkdir -p ~/claws-mail-appimage-build/install
-          mkdir -p ~/claws-mail-appimage-build/ClawsMail.AppDir
-
-      - name: Download Claws Mail source
-        run: |
-          cd ~/claws-mail-appimage-build
-          wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
-          tar -xf claws-mail-4.3.0.tar.xz
-
-      - name: Configure Claws Mail
-        run: |
-          cd ~/claws-mail-appimage-build/claws-mail-4.3.0
-          ./configure \
-            --prefix="$HOME/claws-mail-appimage-build/install" \
-            --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
-            --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
-            --enable-canberra --enable-notify --enable-perl --enable-python \
-            --enable-tnef --enable-vcalendar --enable-ldap --enable-compface \
-            --enable-dillo --enable-fancy --enable-rssyl --enable-spamassassin \
-            --enable-bogofilter --enable-notification --enable-pdf-viewer \
-            --enable-spam-report --enable-address-keeper --enable-acpi-notifier \
-            --enable-maildir --enable-newmail --enable-managesieve || \
-            echo "Some plugins may be disabled."
-
-      - name: Build and install Claws Mail
-        run: |
-          cd ~/claws-mail-appimage-build/claws-mail-4.3.0
-          make -j$(nproc)
-          make install
-
-      - name: Prepare AppImage structure
-        run: |
-          cd ~/claws-mail-appimage-build/ClawsMail.AppDir
-          mkdir -p usr/bin usr/lib usr/share/applications usr/share/icons/hicolor/48x48/apps usr/share/perl
-          cp ~/claws-mail-appimage-build/install/bin/claws-mail usr/bin/
-          DESKTOP_FILE="$HOME/claws-mail-appimage-build/install/share/applications/claws-mail.desktop"
-          if [ -f "$DESKTOP_FILE" ]; then
-            cp "$DESKTOP_FILE" .
-            sed -i 's/Exec=claws-mail %u/Exec=AppRun/' claws-mail.desktop
-            cp claws-mail.desktop usr/share/applications/
-          else
-            echo "[Desktop Entry]" > claws-mail.desktop
-            echo "Name=Claws Mail" >> claws-mail.desktop
-            echo "Exec=AppRun" >> claws-mail.desktop
-            echo "Type=Application" >> claws-mail.desktop
-            echo "Icon=claws-mail" >> claws-mail.desktop
-            echo "Categories=Network;Email;" >> claws-mail.desktop
-            echo "Terminal=false" >> claws-mail.desktop
-            cp claws-mail.desktop usr/share/applications/
-          fi
-          chmod 644 claws-mail.desktop usr/share/applications/claws-mail.desktop
-          ICON_FILE="$HOME/claws-mail-appimage-build/install/share/icons/hicolor/48x48/apps/claws-mail.png"
-          if [ -f "$ICON_FILE" ]; then
-            cp "$ICON_FILE" claws-mail.png
-            cp "$ICON_FILE" usr/share/icons/hicolor/48x48/apps/
-          else
-            echo "Warning: Icon file not found at $ICON_FILE, skipping icon setup."
-          fi
-          if [ -f claws-mail.png ]; then
-            chmod 644 claws-mail.png usr/share/icons/hicolor/48x48/apps/claws-mail.png
-          fi
-
-      - name: Create AppRun with debug logging
-        run: |
-          cd ~/claws-mail-appimage-build/ClawsMail.AppDir
-          cat <<EOF > AppRun
-          #!/bin/bash
-          HERE="\$(dirname "\$(readlink -f "\${0}")")"
-          LOG_FILE="\$HOME/.claws-mail-appimage.log"
-          echo "[$(date)] AppImage started" > "\$LOG_FILE" 2>&1 || echo "Failed to write log" >&2
-          echo "Environment: \$PATH" >> "\$LOG_FILE" 2>&1
-          echo "LD_LIBRARY_PATH: \$LD_LIBRARY_PATH" >> "\$LOG_FILE" 2>&1
-          echo "Running claws-mail from: \$HERE/usr/bin/claws-mail" >> "\$LOG_FILE" 2>&1
-          "\$HERE/usr/bin/claws-mail" "\$@" 2>> "\$LOG_FILE"
-          EXIT_CODE=\$?
-          echo "[$(date)] AppImage exited with code \$EXIT_CODE" >> "\$LOG_FILE" 2>&1
-          exit \$EXIT_CODE
-          EOF
-          chmod +x AppRun
-          ls -l AppRun
-
-      - name: Bundle external tools
-        run: |
-          cd ~/claws-mail-appimage-build/ClawsMail.AppDir
-          cp /usr/bin/gs usr/bin/
-          cp /usr/bin/spamassassin usr/bin/
-          cp /usr/bin/perl usr/bin/
-          if [ -d "/usr/lib/x86_64-linux-gnu/perl" ]; then
-            cp -r /usr/lib/x86_64-linux-gnu/perl usr/lib/
-          elif [ -d "/usr/lib/x86_64-linux-gnu/perl5" ]; then
-            cp -r /usr/lib/x86_64-linux-gnu/perl5 usr/lib/
-          else
-            echo "Warning: Perl libraries not found; SpamAssassin may not work."
-          fi
-          if [ -d "/usr/share/perl" ]; then
-            cp -r /usr/share/perl/* usr/share/perl/
-          fi
+          # Bundle additional glib libraries
+          cp /usr/lib/x86_64-linux-gnu/libglib-2.0.so* usr/lib/
+          cp /usr/lib/x86_64-linux-gnu/libatspi.so* usr/lib/
 
       - name: Download build tools
         run: |
