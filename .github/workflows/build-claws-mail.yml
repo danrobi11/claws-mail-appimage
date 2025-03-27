@@ -26,7 +26,7 @@ jobs:
             libnotify-dev libstartup-notification0-dev libcompfaceg1-dev \
             fuse3 libfuse3-dev libfuse2 xterm
 
-- name: Build and install Nettle with glibc
+      - name: Build and install Nettle with glibc
         run: |
           wget https://ftp.gnu.org/gnu/nettle/nettle-3.7.3.tar.gz
           tar -xzf nettle-3.7.3.tar.gz
