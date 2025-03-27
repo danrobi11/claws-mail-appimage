@@ -79,8 +79,9 @@ jobs:
           cd ~/claws-mail-appimage-build/ClawsMail.AppDir
           mkdir -p usr/bin usr/lib usr/share/applications usr/share/icons/hicolor/48x48/apps usr/share/perl
           cp ~/claws-mail-appimage-build/install/bin/claws-mail usr/bin/
-          if [ -f "~/claws-mail-appimage-build/install/share/applications/claws-mail.desktop" ]; then
-            cp ~/claws-mail-appimage-build/install/share/applications/claws-mail.desktop .
+          DESKTOP_FILE="$HOME/claws-mail-appimage-build/install/share/applications/claws-mail.desktop"
+          if [ -f "$DESKTOP_FILE" ]; then
+            cp "$DESKTOP_FILE" .
             sed -i 's/Exec=claws-mail %u/Exec=AppRun/' claws-mail.desktop
             cp claws-mail.desktop usr/share/applications/
           else
@@ -94,14 +95,16 @@ jobs:
             cp claws-mail.desktop usr/share/applications/
           fi
           chmod 644 claws-mail.desktop usr/share/applications/claws-mail.desktop
-          if [ -f "~/claws-mail-appimage-build/install/share/icons/hicolor/48x48/apps/claws-mail.png" ]; then
-            cp ~/claws-mail-appimage-build/install/share/icons/hicolor/48x48/apps/claws-mail.png claws-mail.png
-            cp ~/claws-mail-appimage-build/install/share/icons/hicolor/48x48/apps/claws-mail.png usr/share/icons/hicolor/48x48/apps/
+          ICON_FILE="$HOME/claws-mail-appimage-build/install/share/icons/hicolor/48x48/apps/claws-mail.png"
+          if [ -f "$ICON_FILE" ]; then
+            cp "$ICON_FILE" claws-mail.png
+            cp "$ICON_FILE" usr/share/icons/hicolor/48x48/apps/
           else
-            wget -O claws-mail.png "https://www.claws-mail.org/images/claws-mail_icon_48.png"
-            cp claws-mail.png usr/share/icons/hicolor/48x48/apps/
+            echo "Warning: Icon file not found at $ICON_FILE, skipping icon setup."
           fi
-          chmod 644 claws-mail.png usr/share/icons/hicolor/48x48/apps/claws-mail.png
+          if [ -f claws-mail.png ]; then
+            chmod 644 claws-mail.png usr/share/icons/hicolor/48x48/apps/claws-mail.png
+          fi
 
       - name: Create AppRun with debug logging
         run: |
