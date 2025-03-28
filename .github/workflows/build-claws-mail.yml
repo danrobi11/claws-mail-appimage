@@ -20,7 +20,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential curl tar pkg-config \
-            git wget \
+            git wget patchelf \
             libetpan-dev libgnutls28-dev \
             libarchive-dev \
             ghostscript spamassassin \
@@ -56,7 +56,7 @@ jobs:
       - name: Configure Claws Mail with all plugins and RPATH
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
-          CFLAGS="-g" LDFLAGS="-Wl,-rpath,'\$ORIGIN/../lib'" ./configure \
+          CFLAGS="-g" LDFLAGS="-Wl,-rpath=\$ORIGIN/../lib" ./configure \
             --prefix=/usr \
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
             --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
@@ -91,17 +91,20 @@ jobs:
             echo "Copying $lib"
             cp -v "$lib" usr/lib/ || { echo "Error: Failed to copy $lib"; exit 1; }
           done
-          # Explicitly copy key libs and linker
           cp -v /usr/lib/libicu*.so.74* usr/lib/ || { echo "Error: Failed to copy ICU libs"; exit 1; }
           cp -v /usr/lib/x86_64-linux-gnu/libgnutls*.so* usr/lib/ || { echo "Error: Failed to copy GNUTLS libs"; exit 1; }
           cp -v /usr/lib/x86_64-linux-gnu/libetpan.so.20* usr/lib/ || { echo "Error: Failed to copy libetpan.so.20"; exit 1; }
           cp -v /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/ || { echo "Error: Failed to copy linker"; exit 1; }
-          # Copy GTK modules
           cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/immodules/ || true
           cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/printbackends/*.so usr/lib/gtk-3.0/3.0.0/printbackends/ || true
           strip usr/bin/claws-mail usr/lib/*.so* usr/lib/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/printbackends/*.so 2>/dev/null || true
           echo "Final library list in usr/lib:"
           ls -l usr/lib/
+
+      - name: Ensure RPATH with patchelf
+        run: |
+          patchelf --set-rpath '$ORIGIN/../lib' ~/claws-mail-install/usr/bin/claws-mail
+          readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || { echo "RPATH not set"; exit 1; }
 
       - name: Create tarball with binary and libraries
         run: |
