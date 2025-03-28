@@ -109,7 +109,7 @@ jobs:
           echo "Before patchelf:"
           readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || echo "No RPATH set initially"
           ls -l ~/claws-mail-install/usr/bin/claws-mail
-          sudo patchelf --verbose --force-rpath --set-rpath \$ORIGIN/../lib ~/claws-mail-install/usr/bin/claws-mail || { echo "Patchelf failed"; exit 1; }
+          sudo patchelf --force-rpath --set-rpath \$ORIGIN/../lib ~/claws-mail-install/usr/bin/claws-mail || { echo "Patchelf failed"; exit 1; }
           echo "After patchelf:"
           readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || { echo "RPATH not set after patchelf"; exit 1; }
 
