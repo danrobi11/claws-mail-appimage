@@ -1,0 +1,146 @@
+name: Build Claws Mail Bundled Binary for Void
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl tar pkg-config zip \
+            git wget patchelf \
+            libetpan-dev libgnutls28-dev \
+            libarchive-dev \
+            ghostscript spamassassin \
+            libfuse-dev libgpgme-dev libenchant-2-dev \
+            libldap2-dev libdb-dev libx11-dev libsm-dev \
+            libgumbo-dev libsecret-1-dev \
+            libperl-dev python3-dev libical-dev \
+            libgtk-3-dev libcanberra-dev libnotify-dev \
+            libjson-glib-dev libglib2.0-dev \
+            libwebkit2gtk-4.1-dev qtbase5-dev \
+            libpoppler-glib-dev libsoup2.4-dev
+      - name: Install ICU 74 from source
+        run: |
+          wget https://github.com/unicode-org/icu/releases/download/release-74-2/icu4c-74_2-src.tgz -O icu.tar.gz
+          tar -xzf icu.tar.gz
+          cd icu/source
+          CFLAGS="-g" ./configure --prefix=/usr --disable-static
+          make -j$(nproc)
+          sudo make install
+          rm -rf ../../icu.tar.gz ../../icu
+          ls -l /usr/lib/libicu*.so.74 || { echo "ICU 74 libraries not found"; exit 1; }
+          export LD_LIBRARY_PATH=/usr/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+          echo "LD_LIBRARY_PATH=/usr/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+      - name: Download Claws Mail source
+        run: |
+          mkdir -p ~/claws-mail-build
+          cd ~/claws-mail-build
+          wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
+          tar -xf claws-mail-4.3.0.tar.xz
+      - name: Configure Claws Mail with all plugins
+        run: |
+          cd ~/claws-mail-build/claws-mail-4.3.0
+          CFLAGS="-g" ./configure \
+            --prefix=/usr \
+            --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
+            --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
+            --enable-canberra --enable-notify --enable-perl --enable-python \
+            --enable-vcalendar --enable-ldap \
+            --enable-dillo --enable-fancy --enable-rssyl --enable-spamassassin \
+            --enable-bogofilter --enable-notification --enable-pdf-viewer \
+            --enable-spam-report --enable-address-keeper --enable-acpi-notifier \
+            --enable-maildir --enable-newmail --enable-managesieve \
+          || { echo "Configuration failed, check config.log"; cat config.log; exit 1; }
+          grep "yes" config.log || echo "No features explicitly enabled"
+      - name: Build Claws Mail
+        run: |
+          cd ~/claws-mail-build/claws-mail-4.3.0
+          make -j$(nproc) || { echo "Build failed"; exit 1; }
+      - name: Install Claws Mail to a staging directory
+        run: |
+          cd ~/claws-mail-build/claws-mail-4.3.0
+          mkdir -p ~/claws-mail-install/usr
+          make install DESTDIR=~/claws-mail-install || { echo "Installation failed"; exit 1; }
+      - name: Bundle all shared library dependencies
+        run: |
+          cd ~/claws-mail-install
+          mkdir -p usr/lib usr/lib/gtk-3.0/3.0.0/immodules usr/lib/gtk-3.0/3.0.0/printbackends usr/bin/temp-config
+          cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/claws-mail-bin
+          chmod +w usr/bin/claws-mail-bin
+          echo "Listing libraries required by claws-mail:"
+          ldd usr/bin/claws-mail-bin
+          ldd usr/bin/claws-mail-bin | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
+            echo "Copying $lib"
+            cp -v "$lib" usr/lib/ || { echo "Error: Failed to copy $lib"; exit 1; }
+          done
+          cp -v /usr/lib/libicu*.so.74* usr/lib/ || { echo "Error: Failed to copy ICU libs"; exit 1; }
+          cp -v /usr/lib/x86_64-linux-gnu/libgnutls*.so* usr/lib/ || { echo "Error: Failed to copy GNUTLS libs"; exit 1; }
+          cp -v /usr/lib/x86_64-linux-gnu/libetpan.so.20* usr/lib/ || { echo "Error: Failed to copy libetpan.so.20"; exit 1; }
+          cp -v /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/ || { echo "Error: Failed to copy linker"; exit 1; }
+          cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/immodules/ || true
+          cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/printbackends/*.so usr/lib/gtk-3.0/3.0.0/printbackends/ || true
+          echo "Final library list in usr/lib:"
+          ls -l usr/lib/
+      - name: Ensure RPATH with patchelf
+        run: |
+          echo "Patchelf version:"
+          patchelf --version
+          echo "Before patchelf:"
+          readelf -d ~/claws-mail-install/usr/bin/claws-mail-bin | grep RPATH || echo "No RPATH set initially"
+          ls -l ~/claws-mail-install/usr/bin/claws-mail-bin
+          sudo patchelf --force-rpath --set-rpath \$ORIGIN/../lib ~/claws-mail-install/usr/bin/claws-mail-bin || { echo "Patchelf failed"; exit 1; }
+          echo "After patchelf:"
+          readelf -d ~/claws-mail-install/usr/bin/claws-mail-bin | grep RPATH || { echo "RPATH not set after patchelf"; exit 1; }
+      - name: Create config files
+        run: |
+          cd ~/claws-mail-install/usr/bin/temp-config
+          touch clawsrc folderitemrc
+          cat > accountrc << EOF
+          [account_1]
+          name=Test User
+          address=test@example.com
+          protocol=0
+          server=imap.example.com
+          user_id=testuser
+          password=testpass
+          EOF
+          chmod 700 clawsrc folderitemrc accountrc
+          ls -l .
+      - name: Create launcher script
+        run: |
+          cd ~/claws-mail-install/usr/bin
+          cat > claws-mail << EOF
+          #!/bin/bash
+          DIR="\$(dirname "\$(realpath "\$0")")"
+          "\$DIR/../lib/ld-linux-x86-64.so.2" --library-path "\$DIR/../lib" "\$DIR/claws-mail-bin" --alternate-config-dir "\$DIR/temp-config" "\$@"
+          EOF
+          chmod +x claws-mail
+          cat claws-mail
+      - name: Create zip file with binary and libraries
+        run: |
+          cd ~/claws-mail-install
+          zip -r ~/claws-mail-4.3.0-void-bundled.zip .
+      - name: Generate SHA256 checksum
+        run: |
+          sha256sum ~/claws-mail-4.3.0-void-bundled.zip > ~/claws-mail-4.3.0-void-bundled.zip.sha256
+          cat ~/claws-mail-4.3.0-void-bundled.zip.sha256
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: claws-mail-void-bundled
+          path: |
+            ~/claws-mail-4.3.0-void-bundled.zip
+            ~/claws-mail-4.3.0-void-bundled.zip.sha256
