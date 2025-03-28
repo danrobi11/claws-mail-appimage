@@ -19,7 +19,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential curl tar pkg-config \
+            build-essential curl tar pkg-config zip \
             git wget patchelf \
             libetpan-dev libgnutls28-dev \
             libarchive-dev \
@@ -139,17 +139,20 @@ jobs:
           chmod +x claws-mail
           cat claws-mail
 
-      - name: Create tarball with binary and libraries
+      - name: Create zip file with binary and libraries
         run: |
           cd ~/claws-mail-install
-          tar -czf ~/claws-mail-4.3.0-void-bundled.tar.gz .
+          zip -r ~/claws-mail-4.3.0-void-bundled.zip .
+
+      - name: Generate SHA256 checksum
+        run: |
+          sha256sum ~/claws-mail-4.3.0-void-bundled.zip > ~/claws-mail-4.3.0-void-bundled.zip.sha256
+          cat ~/claws-mail-4.3.0-void-bundled.zip.sha256
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: claws-mail-void-bundled
-          path: ~/claws-mail-4.3.0-void-bundled.tar.gz
-
-      - name: Display SHA256 checksum
-        run: |
-          sha256sum ~/claws-mail-4.3.0-void-bundled.tar.gz
+          path: |
+            ~/claws-mail-4.3.0-void-bundled.zip
+            ~/claws-mail-4.3.0-void-bundled.zip.sha256
