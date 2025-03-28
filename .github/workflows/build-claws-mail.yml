@@ -53,10 +53,10 @@ jobs:
           wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
           tar -xf claws-mail-4.3.0.tar.xz
 
-      - name: Configure Claws Mail with all plugins and RPATH
+      - name: Configure Claws Mail with all plugins
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
-          CFLAGS="-g" LDFLAGS="-Wl,-rpath=\$ORIGIN/../lib" ./configure \
+          CFLAGS="-g" ./configure \
             --prefix=/usr \
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
             --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
@@ -85,6 +85,7 @@ jobs:
           cd ~/claws-mail-install
           mkdir -p usr/lib usr/lib/gtk-3.0/3.0.0/immodules usr/lib/gtk-3.0/3.0.0/printbackends
           cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/
+          chmod +w usr/bin/claws-mail  # Ensure writable for patchelf
           echo "Listing libraries required by claws-mail:"
           ldd usr/bin/claws-mail
           ldd usr/bin/claws-mail | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
@@ -103,7 +104,10 @@ jobs:
 
       - name: Ensure RPATH with patchelf
         run: |
-          patchelf --set-rpath '$ORIGIN/../lib' ~/claws-mail-install/usr/bin/claws-mail
+          echo "Before patchelf:"
+          readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || echo "No RPATH set initially"
+          patchelf --set-rpath \$ORIGIN/../lib ~/claws-mail-install/usr/bin/claws-mail
+          echo "After patchelf:"
           readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || { echo "RPATH not set"; exit 1; }
 
       - name: Create tarball with binary and libraries
