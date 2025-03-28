@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Ubuntu 24.04, glibc-based
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -38,7 +38,7 @@ jobs:
           wget https://github.com/unicode-org/icu/releases/download/release-74-2/icu4c-74_2-src.tgz -O icu.tar.gz
           tar -xzf icu.tar.gz
           cd icu/source
-          CFLAGS="-g" ./configure --prefix=/usr --disable-static  # Debug symbols
+          CFLAGS="-g" ./configure --prefix=/usr --disable-static
           make -j$(nproc)
           sudo make install
           rm -rf ../../icu.tar.gz ../../icu
@@ -53,10 +53,10 @@ jobs:
           wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
           tar -xf claws-mail-4.3.0.tar.xz
 
-      - name: Configure Claws Mail with all plugins
+      - name: Configure Claws Mail with all plugins and RPATH
         run: |
           cd ~/claws-mail-build/claws-mail-4.3.0
-          CFLAGS="-g" ./configure \
+          CFLAGS="-g" LDFLAGS="-Wl,-rpath,'\$ORIGIN/../lib'" ./configure \
             --prefix=/usr \
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
             --enable-pgp-inline --enable-pgp-mime --enable-enchant --enable-poppler \
@@ -83,7 +83,7 @@ jobs:
       - name: Bundle all shared library dependencies
         run: |
           cd ~/claws-mail-install
-          mkdir -p usr/lib
+          mkdir -p usr/lib usr/lib/gtk-3.0/3.0.0/immodules usr/lib/gtk-3.0/3.0.0/printbackends
           cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/
           echo "Listing libraries required by claws-mail:"
           ldd usr/bin/claws-mail
@@ -94,9 +94,12 @@ jobs:
           # Explicitly copy key libs and linker
           cp -v /usr/lib/libicu*.so.74* usr/lib/ || { echo "Error: Failed to copy ICU libs"; exit 1; }
           cp -v /usr/lib/x86_64-linux-gnu/libgnutls*.so* usr/lib/ || { echo "Error: Failed to copy GNUTLS libs"; exit 1; }
-          cp -v /usr/lib/x86_64-linux-gnu/libetpan*.so* usr/lib/ || { echo "Error: Failed to copy libetpan libs"; exit 1; }
+          cp -v /usr/lib/x86_64-linux-gnu/libetpan.so.20* usr/lib/ || { echo "Error: Failed to copy libetpan.so.20"; exit 1; }
           cp -v /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/ || { echo "Error: Failed to copy linker"; exit 1; }
-          strip usr/bin/claws-mail usr/lib/*.so* 2>/dev/null || true
+          # Copy GTK modules
+          cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/immodules/ || true
+          cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/printbackends/*.so usr/lib/gtk-3.0/3.0.0/printbackends/ || true
+          strip usr/bin/claws-mail usr/lib/*.so* usr/lib/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/printbackends/*.so 2>/dev/null || true
           echo "Final library list in usr/lib:"
           ls -l usr/lib/
 
