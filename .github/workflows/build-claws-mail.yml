@@ -84,8 +84,9 @@ jobs:
         run: |
           cd ~/claws-mail-install
           mkdir -p usr/lib usr/lib/gtk-3.0/3.0.0/immodules usr/lib/gtk-3.0/3.0.0/printbackends
-          cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/
-          chmod +w usr/bin/claws-mail  # Ensure writable for patchelf
+          cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/claws-mail-unstripped
+          mv usr/bin/claws-mail-unstripped usr/bin/claws-mail
+          chmod +w usr/bin/claws-mail
           echo "Listing libraries required by claws-mail:"
           ldd usr/bin/claws-mail
           ldd usr/bin/claws-mail | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
@@ -98,17 +99,20 @@ jobs:
           cp -v /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/ || { echo "Error: Failed to copy linker"; exit 1; }
           cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/immodules/ || true
           cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/printbackends/*.so usr/lib/gtk-3.0/3.0.0/printbackends/ || true
-          strip usr/bin/claws-mail usr/lib/*.so* usr/lib/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/printbackends/*.so 2>/dev/null || true
+          strip usr/lib/*.so* usr/lib/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/printbackends/*.so 2>/dev/null || true
           echo "Final library list in usr/lib:"
           ls -l usr/lib/
 
       - name: Ensure RPATH with patchelf
         run: |
+          echo "Patchelf version:"
+          patchelf --version
           echo "Before patchelf:"
           readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || echo "No RPATH set initially"
-          patchelf --set-rpath \$ORIGIN/../lib ~/claws-mail-install/usr/bin/claws-mail
+          ls -l ~/claws-mail-install/usr/bin/claws-mail
+          sudo patchelf --force-rpath --set-rpath "$ORIGIN/../lib" ~/claws-mail-install/usr/bin/claws-mail || { echo "Patchelf failed"; exit 1; }
           echo "After patchelf:"
-          readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || { echo "RPATH not set"; exit 1; }
+          readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || { echo "RPATH not set after patchelf"; exit 1; }
 
       - name: Create tarball with binary and libraries
         run: |
