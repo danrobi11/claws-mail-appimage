@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: voidlinux/void-glibc:latest  # Void glibc base image
+    container: voidlinux/voidlinux:latest-glibc  # Corrected to glibc variant
 
     steps:
       - name: Checkout repository
