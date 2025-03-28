@@ -44,7 +44,7 @@ jobs:
             libarchive-dev \
             ghostscript spamassassin
           # Manually extract everything else with error checking
-          wget -O fuse.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/fuse-2.9.9-r5.apk" || { echo "Failed to download fuse.apk"; exit 1; }
+          wget -O fuse.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/fuse3-dev-3.16.2-r0.apk" || { echo "Failed to download fuse.apk"; exit 1; }
           wget -O gpgme-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/gpgme-dev-1.24.0-r0.apk" || { echo "Failed to download gpgme-dev.apk"; exit 1; }
           wget -O enchant2-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/enchant2-dev-2.8.2-r0.apk" || { echo "Failed to download enchant2-dev.apk"; exit 1; }
           wget -O openldap-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/openldap-dev-2.6.8-r1.apk" || { echo "Failed to download openldap-dev.apk"; exit 1; }
