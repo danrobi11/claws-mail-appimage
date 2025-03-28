@@ -9,18 +9,29 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container: alpine:edge
+    runs-on: ubuntu-latest  # Ubuntu 24.04, glibc-based
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install build tools
+      - name: Install build tools and dependencies
         run: |
-          apk update
-          apk add --no-cache \
-            bash build-base curl tar pkgconf linux-headers
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl tar pkg-config \
+            git wget \
+            libetpan-dev libgnutls28-dev \
+            libarchive-dev \
+            ghostscript spamassassin \
+            libfuse-dev libgpgme-dev libenchant-2-dev \
+            libldap2-dev libdb-dev libx11-dev libsm-dev \
+            libgumbo-dev libsecret-1-dev \
+            libperl-dev python3-dev libical-dev \
+            libgtk-3-dev libcanberra-dev libnotify-dev \
+            libjson-glib-dev libglib2.0-dev \
+            libwebkit2gtk-4.0-dev qtbase5-dev \
+            libpoppler-glib-dev libsoup2.4-dev
 
       - name: Install ICU 74 from source
         run: |
@@ -29,86 +40,11 @@ jobs:
           cd icu/source
           ./configure --prefix=/usr --disable-static
           make -j$(nproc)
-          make install
+          sudo make install
           rm -rf ../../icu.tar.gz ../../icu
           ls -l /usr/lib/libicu*.so.74 || { echo "ICU 74 libraries not found"; exit 1; }
-          export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
-          echo "LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-
-      - name: Install Claws Mail dependencies
-        run: |
-          apk add --no-cache \
-            git wget \
-            musl-dev \
-            libetpan-dev gnutls-dev \
-            libarchive-dev \
-            ghostscript spamassassin
-          # Manually extract everything else with error checking
-          wget -O fuse.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/fuse3-dev-3.16.2-r0.apk" || { echo "Failed to download fuse.apk"; exit 1; }
-          wget -O gpgme-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/gpgme-dev-1.24.0-r0.apk" || { echo "Failed to download gpgme-dev.apk"; exit 1; }
-          wget -O enchant2-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/enchant2-dev-2.8.2-r0.apk" || { echo "Failed to download enchant2-dev.apk"; exit 1; }
-          wget -O openldap-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/openldap-dev-2.6.8-r1.apk" || { echo "Failed to download openldap-dev.apk"; exit 1; }
-          wget -O db-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/db-dev-5.3.28-r4.apk" || { echo "Failed to download db-dev.apk"; exit 1; }
-          wget -O libx11-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libx11-dev-1.8.10-r0.apk" || { echo "Failed to download libx11-dev.apk"; exit 1; }
-          wget -O libsm-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libsm-dev-1.2.4-r4.apk" || { echo "Failed to download libsm-dev.apk"; exit 1; }
-          wget -O gumbo-parser-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/gumbo-parser-dev-0.12.1-r0.apk" || { echo "Failed to download gumbo-parser-dev.apk"; exit 1; }
-          wget -O libsecret-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libsecret-dev-0.21.4-r1.apk" || { echo "Failed to download libsecret-dev.apk"; exit 1; }
-          wget -O perl-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/perl-dev-5.40.0-r2.apk" || { echo "Failed to download perl-dev.apk"; exit 1; }
-          wget -O python3-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/python3-dev-3.12.7-r0.apk" || { echo "Failed to download python3-dev.apk"; exit 1; }
-          wget -O libical-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libical-dev-3.0.18-r1.apk" || { echo "Failed to download libical-dev.apk"; exit 1; }
-          wget -O gtk+3.0-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/gtk+3.0-dev-3.24.43-r1.apk" || { echo "Failed to download gtk+3.0-dev.apk"; exit 1; }
-          wget -O libcanberra-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libcanberra-dev-0.30-r10.apk" || { echo "Failed to download libcanberra-dev.apk"; exit 1; }
-          wget -O libnotify-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libnotify-dev-0.8.3-r1.apk" || { echo "Failed to download libnotify-dev.apk"; exit 1; }
-          wget -O json-glib-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/json-glib-dev-1.10.0-r0.apk" || { echo "Failed to download json-glib-dev.apk"; exit 1; }
-          wget -O glib-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/glib-dev-2.82.2-r0.apk" || { echo "Failed to download glib-dev.apk"; exit 1; }
-          wget -O webkit2gtk-4.1-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/webkit2gtk-4.1-dev-2.46.4-r0.apk" || { echo "Failed to download webkit2gtk-4.1-dev.apk"; exit 1; }
-          wget -O qt5-qtbase-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64/qt5-qtbase-dev-5.15.10_git20230714-r3.apk" || { echo "Failed to download qt5-qtbase-dev.apk"; exit 1; }
-          wget -O poppler-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/poppler-dev-24.10.0-r0.apk" || { echo "Failed to download poppler-dev.apk"; exit 1; }
-          wget -O libsoup-dev.apk "https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/libsoup-dev-2.74.3-r3.apk" || { echo "Failed to download libsoup-dev.apk"; exit 1; }
-          mkdir -p /tmp/fuse /tmp/gpgme /tmp/enchant /tmp/ldap /tmp/db /tmp/x11 /tmp/sm /tmp/gumbo /tmp/secret /tmp/perl /tmp/python /tmp/ical /tmp/gtk /tmp/canberra /tmp/notify /tmp/json /tmp/glib /tmp/webkit /tmp/qt5 /tmp/poppler /tmp/libsoup
-          tar -xzf fuse.apk -C /tmp/fuse || { echo "Failed to extract fuse.apk"; exit 1; }
-          tar -xzf gpgme-dev.apk -C /tmp/gpgme || { echo "Failed to extract gpgme-dev.apk"; exit 1; }
-          tar -xzf enchant2-dev.apk -C /tmp/enchant || { echo "Failed to extract enchant2-dev.apk"; exit 1; }
-          tar -xzf openldap-dev.apk -C /tmp/ldap || { echo "Failed to extract openldap-dev.apk"; exit 1; }
-          tar -xzf db-dev.apk -C /tmp/db || { echo "Failed to extract db-dev.apk"; exit 1; }
-          tar -xzf libx11-dev.apk -C /tmp/x11 || { echo "Failed to extract libx11-dev.apk"; exit 1; }
-          tar -xzf libsm-dev.apk -C /tmp/sm || { echo "Failed to extract libsm-dev.apk"; exit 1; }
-          tar -xzf gumbo-parser-dev.apk -C /tmp/gumbo || { echo "Failed to extract gumbo-parser-dev.apk"; exit 1; }
-          tar -xzf libsecret-dev.apk -C /tmp/secret || { echo "Failed to extract libsecret-dev.apk"; exit 1; }
-          tar -xzf perl-dev.apk -C /tmp/perl || { echo "Failed to extract perl-dev.apk"; exit 1; }
-          tar -xzf python3-dev.apk -C /tmp/python || { echo "Failed to extract python3-dev.apk"; exit 1; }
-          tar -xzf libical-dev.apk -C /tmp/ical || { echo "Failed to extract libical-dev.apk"; exit 1; }
-          tar -xzf gtk+3.0-dev.apk -C /tmp/gtk || { echo "Failed to extract gtk+3.0-dev.apk"; exit 1; }
-          tar -xzf libcanberra-dev.apk -C /tmp/canberra || { echo "Failed to extract libcanberra-dev.apk"; exit 1; }
-          tar -xzf libnotify-dev.apk -C /tmp/notify || { echo "Failed to extract libnotify-dev.apk"; exit 1; }
-          tar -xzf json-glib-dev.apk -C /tmp/json || { echo "Failed to extract json-glib-dev.apk"; exit 1; }
-          tar -xzf glib-dev.apk -C /tmp/glib || { echo "Failed to extract glib-dev.apk"; exit 1; }
-          tar -xzf webkit2gtk-4.1-dev.apk -C /tmp/webkit || { echo "Failed to extract webkit2gtk-4.1-dev.apk"; exit 1; }
-          tar -xzf qt5-qtbase-dev.apk -C /tmp/qt5 || { echo "Failed to extract qt5-qtbase-dev.apk"; exit 1; }
-          tar -xzf poppler-dev.apk -C /tmp/poppler || { echo "Failed to extract poppler-dev.apk"; exit 1; }
-          tar -xzf libsoup-dev.apk -C /tmp/libsoup || { echo "Failed to extract libsoup-dev.apk"; exit 1; }
-          cp -r /tmp/fuse/usr/* /usr/ || { echo "Failed to copy fuse"; exit 1; }
-          cp -r /tmp/gpgme/usr/* /usr/ || { echo "Failed to copy gpgme"; exit 1; }
-          cp -r /tmp/enchant/usr/* /usr/ || { echo "Failed to copy enchant"; exit 1; }
-          cp -r /tmp/ldap/usr/* /usr/ || { echo "Failed to copy ldap"; exit 1; }
-          cp -r /tmp/db/usr/* /usr/ || { echo "Failed to copy db"; exit 1; }
-          cp -r /tmp/x11/usr/* /usr/ || { echo "Failed to copy x11"; exit 1; }
-          cp -r /tmp/sm/usr/* /usr/ || { echo "Failed to copy sm"; exit 1; }
-          cp -r /tmp/gumbo/usr/* /usr/ || { echo "Failed to copy gumbo"; exit 1; }
-          cp -r /tmp/secret/usr/* /usr/ || { echo "Failed to copy secret"; exit 1; }
-          cp -r /tmp/perl/usr/* /usr/ || { echo "Failed to copy perl"; exit 1; }
-          cp -r /tmp/python/usr/* /usr/ || { echo "Failed to copy python"; exit 1; }
-          cp -r /tmp/ical/usr/* /usr/ || { echo "Failed to copy ical"; exit 1; }
-          cp -r /tmp/gtk/usr/* /usr/ || { echo "Failed to copy gtk"; exit 1; }
-          cp -r /tmp/canberra/usr/* /usr/ || { echo "Failed to copy canberra"; exit 1; }
-          cp -r /tmp/notify/usr/* /usr/ || { echo "Failed to copy notify"; exit 1; }
-          cp -r /tmp/json/usr/* /usr/ || { echo "Failed to copy json"; exit 1; }
-          cp -r /tmp/glib/usr/* /usr/ || { echo "Failed to copy glib"; exit 1; }
-          cp -r /tmp/webkit/usr/* /usr/ || { echo "Failed to copy webkit"; exit 1; }
-          cp -r /tmp/qt5/usr/* /usr/ || { echo "Failed to copy qt5"; exit 1; }
-          cp -r /tmp/poppler/usr/* /usr/ || { echo "Failed to copy poppler"; exit 1; }
-          cp -r /tmp/libsoup/usr/* /usr/ || { echo "Failed to copy libsoup"; exit 1; }
-          rm -rf *.apk /tmp/*
+          export LD_LIBRARY_PATH=/usr/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+          echo "LD_LIBRARY_PATH=/usr/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: Download Claws Mail source
         run: |
@@ -152,9 +88,9 @@ jobs:
           ldd usr/bin/claws-mail | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
             cp -v "$lib" usr/lib/ || { echo "Warning: $lib not found, may need manual inclusion"; continue; }
           done
-          cp -v /usr/lib/libicu*.so.74* usr/lib/
-          cp -v /usr/lib/libgnutls*.so* usr/lib/
-          for lib in /usr/lib/lib*.so*; do
+          cp -v /usr/lib/libicu*.so.74* usr/lib/ || true
+          cp -v /usr/lib/x86_64-linux-gnu/libgnutls*.so* usr/lib/ || true
+          for lib in /usr/lib/x86_64-linux-gnu/*.so*; do
             cp -v "$lib" usr/lib/ || true
           done
           strip usr/bin/claws-mail usr/lib/*.so* 2>/dev/null || true
