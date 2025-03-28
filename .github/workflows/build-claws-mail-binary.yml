@@ -83,12 +83,12 @@ jobs:
       - name: Bundle all shared library dependencies
         run: |
           cd ~/claws-mail-install
-          mkdir -p usr/lib usr/lib/gtk-3.0/3.0.0/immodules usr/lib/gtk-3.0/3.0.0/printbackends
-          cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/
-          chmod +w usr/bin/claws-mail
+          mkdir -p usr/lib usr/lib/gtk-3.0/3.0.0/immodules usr/lib/gtk-3.0/3.0.0/printbackends usr/bin/temp-config
+          cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/claws-mail-bin
+          chmod +w usr/bin/claws-mail-bin
           echo "Listing libraries required by claws-mail:"
-          ldd usr/bin/claws-mail
-          ldd usr/bin/claws-mail | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
+          ldd usr/bin/claws-mail-bin
+          ldd usr/bin/claws-mail-bin | grep -o '/[^ ]*\.so[^ ]*' | sort -u | while read lib; do
             echo "Copying $lib"
             cp -v "$lib" usr/lib/ || { echo "Error: Failed to copy $lib"; exit 1; }
           done
@@ -98,7 +98,6 @@ jobs:
           cp -v /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/ || { echo "Error: Failed to copy linker"; exit 1; }
           cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/immodules/ || true
           cp -rv /usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/printbackends/*.so usr/lib/gtk-3.0/3.0.0/printbackends/ || true
-          strip usr/lib/*.so* usr/lib/gtk-3.0/3.0.0/immodules/*.so usr/lib/gtk-3.0/3.0.0/printbackends/*.so 2>/dev/null || true
           echo "Final library list in usr/lib:"
           ls -l usr/lib/
 
@@ -107,11 +106,38 @@ jobs:
           echo "Patchelf version:"
           patchelf --version
           echo "Before patchelf:"
-          readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || echo "No RPATH set initially"
-          ls -l ~/claws-mail-install/usr/bin/claws-mail
-          sudo patchelf --force-rpath --set-rpath \$ORIGIN/../lib ~/claws-mail-install/usr/bin/claws-mail || { echo "Patchelf failed"; exit 1; }
+          readelf -d ~/claws-mail-install/usr/bin/claws-mail-bin | grep RPATH || echo "No RPATH set initially"
+          ls -l ~/claws-mail-install/usr/bin/claws-mail-bin
+          sudo patchelf --force-rpath --set-rpath \$ORIGIN/../lib ~/claws-mail-install/usr/bin/claws-mail-bin || { echo "Patchelf failed"; exit 1; }
           echo "After patchelf:"
-          readelf -d ~/claws-mail-install/usr/bin/claws-mail | grep RPATH || { echo "RPATH not set after patchelf"; exit 1; }
+          readelf -d ~/claws-mail-install/usr/bin/claws-mail-bin | grep RPATH || { echo "RPATH not set after patchelf"; exit 1; }
+
+      - name: Create config files
+        run: |
+          cd ~/claws-mail-install/usr/bin/temp-config
+          touch clawsrc folderitemrc
+          cat > accountrc << EOF
+          [account_1]
+          name=Test User
+          address=test@example.com
+          protocol=0
+          server=imap.example.com
+          user_id=testuser
+          password=testpass
+          EOF
+          chmod 700 clawsrc folderitemrc accountrc
+          ls -l .
+
+      - name: Create launcher script
+        run: |
+          cd ~/claws-mail-install/usr/bin
+          cat > claws-mail << EOF
+          #!/bin/bash
+          DIR="\$(dirname "\$(realpath "\$0")")"
+          "\$DIR/../lib/ld-linux-x86-64.so.2" --library-path "\$DIR/../lib" "\$DIR/claws-mail-bin" --alternate-config-dir "\$DIR/temp-config" "\$@"
+          EOF
+          chmod +x claws-mail
+          cat claws-mail
 
       - name: Create tarball with binary and libraries
         run: |
