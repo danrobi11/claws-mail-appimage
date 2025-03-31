@@ -131,10 +131,21 @@ jobs:
       - name: Create launcher script
         run: |
           cd ~/claws-mail-install/usr/bin
-          cat > claws-mail << EOF
+          cat > claws-mail << 'EOF'
           #!/bin/bash
-          DIR="\$(dirname "\$(realpath "\$0")")"
-          "\$DIR/../lib/ld-linux-x86-64.so.2" --library-path "\$DIR/../lib" "\$DIR/claws-mail-bin" --alternate-config-dir "\$DIR/temp-config" "\$@"
+          DIR="$(dirname "$(realpath "$0")")"
+          # Set XDG_RUNTIME_DIR if not already set
+          if [ -z "$XDG_RUNTIME_DIR" ]; then
+            XDG_RUNTIME_DIR="/tmp/claws-mail-$UID"
+            mkdir -p "$XDG_RUNTIME_DIR/claws-mail" || { echo "Failed to create socket directory $XDG_RUNTIME_DIR/claws-mail"; exit 1; }
+            chmod 700 "$XDG_RUNTIME_DIR/claws-mail"
+            export XDG_RUNTIME_DIR
+            echo "Set XDG_RUNTIME_DIR to $XDG_RUNTIME_DIR"
+          fi
+          # Run Claws Mail
+          "$DIR/../lib/ld-linux-x86-64.so.2" --library-path "$DIR/../lib" "$DIR/claws-mail-bin" \
+            --alternate-config-dir "$DIR/temp-config" \
+            "$@" || { echo "Claws Mail failed to start"; exit 1; }
           EOF
           chmod +x claws-mail
           cat claws-mail
