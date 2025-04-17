@@ -76,7 +76,7 @@ jobs:
 
       - name: Install Claws Mail to a staging directory
         run: |
-          cd ~/claws-mail-build/claws-mail-4.3.0
+          cd ~/claws-mail-build/claws-mail-4.3.1
           mkdir -p ~/claws-mail-install/usr
           make install DESTDIR=~/claws-mail-install || { echo "Installation failed"; exit 1; }
 
