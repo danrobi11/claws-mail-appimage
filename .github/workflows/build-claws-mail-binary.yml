@@ -50,12 +50,12 @@ jobs:
         run: |
           mkdir -p ~/claws-mail-build
           cd ~/claws-mail-build
-          wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.0.tar.xz" -O claws-mail-4.3.0.tar.xz
-          tar -xf claws-mail-4.3.0.tar.xz
+          wget "https://www.claws-mail.org/download.php?file=releases/claws-mail-4.3.1.tar.xz" -O claws-mail-4.3.1.tar.xz
+          tar -xf claws-mail-4.3.1.tar.xz
 
       - name: Configure Claws Mail with all plugins
         run: |
-          cd ~/claws-mail-build/claws-mail-4.3.0
+          cd ~/claws-mail-build/claws-mail-4.3.1
           CFLAGS="-g" ./configure \
             --prefix=/usr \
             --enable-gtk3 --enable-libetpan --enable-gnutls --enable-pgp-core \
@@ -71,7 +71,7 @@ jobs:
 
       - name: Build Claws Mail
         run: |
-          cd ~/claws-mail-build/claws-mail-4.3.0
+          cd ~/claws-mail-build/claws-mail-4.3.1
           make -j$(nproc) || { echo "Build failed"; exit 1; }
 
       - name: Install Claws Mail to a staging directory
@@ -84,7 +84,7 @@ jobs:
         run: |
           cd ~/claws-mail-install
           mkdir -p usr/lib usr/lib/gtk-3.0/3.0.0/immodules usr/lib/gtk-3.0/3.0.0/printbackends usr/bin/temp-config
-          cp ~/claws-mail-build/claws-mail-4.3.0/src/claws-mail usr/bin/claws-mail-bin
+          cp ~/claws-mail-build/claws-mail-4.3.1/src/claws-mail usr/bin/claws-mail-bin
           chmod +w usr/bin/claws-mail-bin
           echo "Listing libraries required by claws-mail:"
           ldd usr/bin/claws-mail-bin
@@ -163,17 +163,17 @@ jobs:
       - name: Create zip file with binary and libraries
         run: |
           cd ~/claws-mail-install
-          zip -r ~/claws-mail-4.3.0-void-bundled.zip .
+          zip -r ~/claws-mail-4.3.1-void-bundled.zip .
 
       - name: Generate SHA256 checksum
         run: |
-          sha256sum ~/claws-mail-4.3.0-void-bundled.zip > ~/claws-mail-4.3.0-void-bundled.zip.sha256
-          cat ~/claws-mail-4.3.0-void-bundled.zip.sha256
+          sha256sum ~/claws-mail-4.3.1-void-bundled.zip > ~/claws-mail-4.3.1-void-bundled.zip.sha256
+          cat ~/claws-mail-4.3.1-void-bundled.zip.sha256
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: claws-mail-void-bundled
           path: |
-            ~/claws-mail-4.3.0-void-bundled.zip
-            ~/claws-mail-4.3.0-void-bundled.zip.sha256
+            ~/claws-mail-4.3.1-void-bundled.zip
+            ~/claws-mail-4.3.1-void-bundled.zip.sha256
